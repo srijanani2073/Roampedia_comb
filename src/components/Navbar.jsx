@@ -115,6 +115,7 @@ const Navbar = ({ user, setUser }) => {
               <Wallet size={16} />
               Itinerary Dashboard
             </Link>
+            <li><a href="/recommend">Recommendations</a></li>
           </div>
 
           {/* Right: Sign In / Profile */}

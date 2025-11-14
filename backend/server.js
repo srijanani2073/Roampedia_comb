@@ -3,10 +3,12 @@ import mongoose from "mongoose";
 import cors from "cors";
 import morgan from "morgan";
 import dotenv from "dotenv";
-import listsRouter from "./routes/lists.js"; // ✅ use .js extension for ESM imports
+import listsRouter from "./routes/lists.js";
 import travelNotesRoutes from "./routes/travelNotesRoutes.js";
 import experienceRoutes from "./routes/experienceRoutes.js";
 import expensesRoutes from "./routes/expensesRoutes.js";
+import recommendationRoutes from "./routes/recommendationRoutes.js";
+import aiRecommendationRoutes from "./routes/aiRecommendationRoutes.js";
 
 dotenv.config();
 
@@ -29,7 +31,6 @@ app.use(
 );
 app.use(express.json({ limit: "1mb" }));
 app.use(morgan("dev"));
-app.use("/api/travelnotes", travelNotesRoutes);
 
 // === MongoDB Connection ===
 mongoose
@@ -49,6 +50,8 @@ app.use("/api", listsRouter);
 app.use("/api/travelnotes", travelNotesRoutes);
 app.use("/api/experiences", experienceRoutes);
 app.use("/api/expenses", expensesRoutes);
+app.use("/api/recommendations", recommendationRoutes); // ← NEW LINE
+app.use("/api/ai-recommendations", aiRecommendationRoutes);
 
 // === Health Check ===
 app.get("/", (req, res) =>

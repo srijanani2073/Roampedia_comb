@@ -12,6 +12,7 @@ import ItineraryDashboard from "./components/ItineraryDashboard/ItineraryDashboa
 import RoampediaMap from './components/RoampediaMap';
 import "mapbox-gl/dist/mapbox-gl.css";
 import Chatbot from "./components/ChatBot";
+import RecommendationEngine from "./pages/RecommendationEngine";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -45,6 +46,7 @@ function App() {
         <Route path="/itinerarydashboard" element={<ItineraryDashboard />} />
         <Route path="/map" element={<RoampediaMap />} />
         <Route path="/chatbot" element={<Chatbot />} />
+        <Route path="/recommend" element={<RecommendationEngine />} />
       </Routes>
     </Router>
   );

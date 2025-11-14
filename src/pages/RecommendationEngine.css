@@ -1,0 +1,167 @@
+.recommendation-engine-page {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);
+  padding: 2rem 0;
+}
+
+.page-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* Page Header */
+.page-header {
+  text-align: center;
+  padding: 3rem 2rem;
+  margin-bottom: 2rem;
+}
+
+.header-emoji {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.page-header h1 {
+  font-size: 3rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 1rem;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.page-header p {
+  font-size: 1.25rem;
+  color: #7f8c8d;
+  max-width: 700px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* Error Banner */
+.error-banner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  max-width: 1200px;
+  margin: 2rem auto;
+  padding: 1.5rem 2rem;
+  background: #fee;
+  border: 2px solid #fcc;
+  border-radius: 12px;
+  color: #c33;
+  font-weight: 500;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.error-icon {
+  font-size: 1.5rem;
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  margin: 3rem auto;
+  max-width: 600px;
+}
+
+.empty-state-emoji {
+  font-size: 5rem;
+  margin-bottom: 1.5rem;
+  animation: rotate 10s linear infinite;
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.empty-state h3 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 1rem;
+}
+
+.empty-state p {
+  font-size: 1.1rem;
+  color: #7f8c8d;
+  line-height: 1.6;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .page-header h1 {
+    font-size: 2.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .recommendation-engine-page {
+    padding: 1rem 0;
+  }
+
+  .page-header {
+    padding: 2rem 1rem;
+  }
+
+  .page-header h1 {
+    font-size: 2rem;
+  }
+
+  .page-header p {
+    font-size: 1.1rem;
+  }
+
+  .header-emoji {
+    font-size: 3rem;
+  }
+
+  .error-banner {
+    padding: 1rem 1.5rem;
+    margin: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-header h1 {
+    font-size: 1.75rem;
+  }
+
+  .page-header p {
+    font-size: 1rem;
+  }
+
+  .empty-state-emoji {
+    font-size: 4rem;
+  }
+
+  .empty-state h3 {
+    font-size: 1.5rem;
+  }
+
+  .empty-state p {
+    font-size: 1rem;
+  }
+}
