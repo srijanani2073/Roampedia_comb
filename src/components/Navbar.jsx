@@ -1,17 +1,19 @@
 import "./Navbar.css";
 import React, { useState, useEffect, useRef } from "react";
 import { User, LogOut, Settings, ChevronDown, Globe, Newspaper, Wallet } from "lucide-react";
-import { supabase } from "../supabaseClient";
-import AuthModal from "./AuthModal";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from '../contexts/AuthContext';
+import AuthModal from './AuthModal';
 
-const Navbar = ({ user, setUser }) => {
+const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [authOpen, setAuthOpen] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const dropdownRef = useRef(null);
   const profileBtnRef = useRef(null);
   const navigate = useNavigate();
+
+  const { user, logout } = useAuth();
 
   // Handle outside click
   useEffect(() => {
@@ -33,7 +35,6 @@ const Navbar = ({ user, setUser }) => {
     const handleEscape = (e) => {
       if (e.key === "Escape") {
         setMenuOpen(false);
-        setAuthOpen(false);
       }
     };
     document.addEventListener("keydown", handleEscape);
@@ -43,10 +44,9 @@ const Navbar = ({ user, setUser }) => {
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      setUser(null);
+      await logout();
       setMenuOpen(false);
+      navigate('/');
     } catch (error) {
       console.error("Logout error:", error);
     } finally {
@@ -58,18 +58,17 @@ const Navbar = ({ user, setUser }) => {
     if (user) {
       setMenuOpen(!menuOpen);
     } else {
-      setAuthOpen(true);
+      setAuthModalOpen(true);
     }
   };
 
   const getDisplayName = () =>
-    user?.user_metadata?.full_name ||
-    user?.user_metadata?.name ||
+    user?.firstName ||
+    user?.lastName ? `${user?.firstName || ''} ${user?.lastName || ''}`.trim() :
     user?.email?.split("@")[0] ||
     "User";
 
-  const getProfileImage = () =>
-    user?.user_metadata?.avatar_url || user?.user_metadata?.picture || null;
+  const getProfileImage = () => null; // Add your profile image logic here if needed
 
   return (
     <>
@@ -115,7 +114,10 @@ const Navbar = ({ user, setUser }) => {
               <Wallet size={16} />
               Itinerary Dashboard
             </Link>
-            <li><a href="/recommend">Recommendations</a></li>
+            <Link to="/recommend" className="nav-link-btn">
+              <Wallet size={16} />
+              Recommendations
+            </Link>
           </div>
 
           {/* Right: Sign In / Profile */}
@@ -202,206 +204,14 @@ const Navbar = ({ user, setUser }) => {
         </div>
       </nav>
 
+      {/* Auth Modal */}
       <AuthModal
-        isOpen={authOpen}
-        onClose={() => setAuthOpen(false)}
-        setUser={setUser}
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        defaultView="login"
       />
     </>
   );
 };
 
 export default Navbar;
-
-// import './Navbar.css';
-// import React, { useState, useEffect, useRef } from "react";
-// import { User, LogOut, Settings, ChevronDown, Globe } from "lucide-react";
-// import { supabase } from "../supabaseClient";
-// import AuthModal from "./AuthModal";
-
-// const Navbar = ({ user, setUser }) => {
-//   const [menuOpen, setMenuOpen] = useState(false);
-//   const [authOpen, setAuthOpen] = useState(false);
-//   const [isLoggingOut, setIsLoggingOut] = useState(false);
-//   const dropdownRef = useRef(null);
-//   const profileBtnRef = useRef(null);
-
-//   // Close dropdown when clicking outside
-//   useEffect(() => {
-//     const handleClickOutside = (event) => {
-//       if (dropdownRef.current && 
-//           !dropdownRef.current.contains(event.target) && 
-//           !profileBtnRef.current.contains(event.target)) {
-//         setMenuOpen(false);
-//       }
-//     };
-
-//     document.addEventListener('mousedown', handleClickOutside);
-//     return () => document.removeEventListener('mousedown', handleClickOutside);
-//   }, []);
-
-//   // Close dropdown on escape key
-//   useEffect(() => {
-//     const handleEscape = (event) => {
-//       if (event.key === 'Escape') {
-//         setMenuOpen(false);
-//         setAuthOpen(false);
-//       }
-//     };
-
-//     document.addEventListener('keydown', handleEscape);
-//     return () => document.removeEventListener('keydown', handleEscape);
-//   }, []);
-
-//   const handleLogout = async () => {
-//     setIsLoggingOut(true);
-//     try {
-//       const { error } = await supabase.auth.signOut();
-//       if (error) throw error;
-      
-//       setUser(null);
-//       setMenuOpen(false);
-//     } catch (error) {
-//       console.error('Logout error:', error);
-//       // Still close the dropdown even if logout fails
-//       setMenuOpen(false);
-//     } finally {
-//       setIsLoggingOut(false);
-//     }
-//   };
-
-//   const toggleProfileMenu = () => {
-//     if (user) {
-//       setMenuOpen(!menuOpen);
-//     } else {
-//       setAuthOpen(true);
-//     }
-//   };
-
-//   const getDisplayName = () => {
-//     if (!user) return '';
-//     return user.user_metadata?.full_name || 
-//            user.user_metadata?.name || 
-//            user.email?.split('@')[0] || 
-//            'User';
-//   };
-
-//   const getProfileImage = () => {
-//     if (!user) return null;
-//     return user.user_metadata?.avatar_url || 
-//            user.user_metadata?.picture ||
-//            null;
-//   };
-
-//   return (
-//     <>
-//       <nav className="navbar-thin">
-//         <div className="navbar-container">
-//           {/* Left side: brand/logo */}
-//           <div className="navbar-logo">
-//             <Globe size={24} />
-//             <span>Roampedia</span>
-//           </div>
-
-//           {/* Right side: profile */}
-//           <div className="profile-section">
-//             <button
-//               ref={profileBtnRef}
-//               className={`profile-btn ${user ? 'logged-in' : 'guest'} ${menuOpen ? 'active' : ''}`}
-//               onClick={toggleProfileMenu}
-//               aria-label={user ? 'Open profile menu' : 'Sign in'}
-//               aria-expanded={menuOpen}
-//             >
-//               {user ? (
-//                 <div className="profile-info">
-//                   <div className="profile-avatar">
-//                     {getProfileImage() ? (
-//                       <img 
-//                         src={getProfileImage()} 
-//                         alt="Profile" 
-//                         className="profile-image"
-//                         onError={(e) => {
-//                           e.target.style.display = 'none';
-//                           e.target.nextSibling.style.display = 'flex';
-//                         }}
-//                       />
-//                     ) : null}
-//                     <div 
-//                       className="profile-fallback"
-//                       style={{ display: getProfileImage() ? 'none' : 'flex' }}
-//                     >
-//                       {getDisplayName().charAt(0).toUpperCase()}
-//                     </div>
-//                   </div>
-//                   <span className="profile-name-inline">{getDisplayName()}</span>
-//                   <ChevronDown size={16} className={`dropdown-arrow ${menuOpen ? 'rotated' : ''}`} />
-//                 </div>
-//               ) : (
-//                 <div className="guest-profile">
-//                   <User size={20} />
-//                   <span>Sign In</span>
-//                 </div>
-//               )}
-//             </button>
-
-//             {/* Dropdown (only if logged in) */}
-//             {user && menuOpen && (
-//               <div ref={dropdownRef} className="profile-dropdown">
-//                 <div className="dropdown-header">
-//                   <div className="dropdown-avatar">
-//                     {getProfileImage() ? (
-//                       <img 
-//                         src={getProfileImage()} 
-//                         alt="Profile" 
-//                         className="dropdown-profile-image"
-//                         onError={(e) => {
-//                           e.target.style.display = 'none';
-//                           e.target.nextSibling.style.display = 'flex';
-//                         }}
-//                       />
-//                     ) : null}
-//                     <div 
-//                       className="dropdown-profile-fallback"
-//                       style={{ display: getProfileImage() ? 'none' : 'flex' }}
-//                     >
-//                       {getDisplayName().charAt(0).toUpperCase()}
-//                     </div>
-//                   </div>
-//                   <div className="dropdown-user-info">
-//                     <p className="dropdown-name">{getDisplayName()}</p>
-//                     <p className="dropdown-email">{user.email}</p>
-//                   </div>
-//                 </div>
-                
-//                 <div className="dropdown-divider" />
-                
-//                 <button className="dropdown-item" onClick={() => setMenuOpen(false)}>
-//                   <Settings size={16} />
-//                   <span>Settings</span>
-//                 </button>
-                
-//                 <button 
-//                   className="dropdown-item logout-item" 
-//                   onClick={handleLogout}
-//                   disabled={isLoggingOut}
-//                 >
-//                   <LogOut size={16} />
-//                   <span>{isLoggingOut ? 'Signing out...' : 'Sign Out'}</span>
-//                 </button>
-//               </div>
-//             )}
-//           </div>
-//         </div>
-//       </nav>
-
-//       {/* Auth Modal */}
-//       <AuthModal 
-//         isOpen={authOpen}
-//         onClose={() => setAuthOpen(false)} 
-//         setUser={setUser}
-//       />
-//     </>
-//   );
-// };
-
-// export default Navbar;

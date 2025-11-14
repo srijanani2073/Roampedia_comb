@@ -1,27 +1,38 @@
 import mongoose from "mongoose";
 
 /**
- * UserPreferences Model - Track user feedback and preferences
- * This enables learning from user behavior for future ML personalization
+ * UserPreferences Model - Updated for Authentication
+ * Now links to User model instead of using string userId
  */
 
 const userPreferencesSchema = new mongoose.Schema(
   {
+    // Link to User model
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      unique: true, // One preferences document per user
+    },
+    
+    // Legacy support: keep userId as string for backwards compatibility
     userId: {
       type: String,
-      required: true,
       index: true,
     },
+    
     // Preferred vibe tags based on feedback
     preferredVibes: {
       type: [String],
       default: [],
     },
+    
     // Preferred activity tags based on feedback
     preferredActivities: {
       type: [String],
       default: [],
     },
+    
     // Countries the user liked
     likedCountries: [
       {
@@ -29,6 +40,7 @@ const userPreferencesSchema = new mongoose.Schema(
         timestamp: { type: Date, default: Date.now },
       },
     ],
+    
     // Countries the user disliked
     dislikedCountries: [
       {
@@ -36,6 +48,7 @@ const userPreferencesSchema = new mongoose.Schema(
         timestamp: { type: Date, default: Date.now },
       },
     ],
+    
     // Feedback history
     feedbackHistory: [
       {
@@ -45,16 +58,19 @@ const userPreferencesSchema = new mongoose.Schema(
         timestamp: { type: Date, default: Date.now },
       },
     ],
+    
     // Preferred regions
     preferredRegions: {
       type: [String],
       default: [],
     },
+    
     // Budget preference
     budgetPreference: {
       type: String,
       enum: ["Budget", "Mid-range", "Luxury", "Mixed"],
     },
+    
     // Last recommendation query
     lastQuery: {
       vibes: [String],
@@ -68,8 +84,8 @@ const userPreferencesSchema = new mongoose.Schema(
   }
 );
 
-// Index for efficient querying
-userPreferencesSchema.index({ userId: 1 });
+// Compound index for efficient querying
+userPreferencesSchema.index({ user: 1, userId: 1 });
 
 // Method to update preferences based on feedback
 userPreferencesSchema.methods.updateFromFeedback = function (
@@ -99,6 +115,28 @@ userPreferencesSchema.methods.updateFromFeedback = function (
   }
 
   return this;
+};
+
+/**
+ * Static method to find or create preferences for a user
+ */
+userPreferencesSchema.statics.findOrCreateForUser = async function (userId) {
+  let preferences = await this.findOne({ 
+    $or: [
+      { user: userId },
+      { userId: userId } // Backwards compatibility
+    ]
+  });
+
+  if (!preferences) {
+    preferences = new this({
+      user: userId,
+      userId: userId.toString(),
+    });
+    await preferences.save();
+  }
+
+  return preferences;
 };
 
 const UserPreferences = mongoose.model("UserPreferences", userPreferencesSchema);

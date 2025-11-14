@@ -4,8 +4,10 @@ import VibeSelector from "../components/RecommendationEngine/VibeSelector";
 import RecommendationDisplay from "../components/RecommendationEngine/RecommendationDisplay";
 import { useNavigate } from "react-router-dom";
 import "./RecommendationEngine.css";
+import { useAuth } from '../contexts/AuthContext';
 
 const RecommendationEngine = () => {
+  const { user, getUserId, isAuthenticated } = useAuth();
   const [recommendations, setRecommendations] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -18,14 +20,26 @@ const RecommendationEngine = () => {
     setError(null);
 
     try {
+      // Make sure we have authentication
+      if (!isAuthenticated) {
+        setError("Please log in to use the recommendation engine");
+        setIsLoading(false);
+        return;
+      }
+
       const response = await axios.post(
         `${API_BASE_URL}/api/ai-recommendations`,
         {
-          userId: localStorage.getItem("userId") || "guest",
+          userId: getUserId(), // This will be the actual user ID now
           vibes: searchParams.vibes,
           activities: searchParams.activities,
           filters: searchParams.filters,
           limit: 12,
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+          }
         }
       );
 
@@ -41,32 +55,50 @@ const RecommendationEngine = () => {
       }
     } catch (err) {
       console.error("Error fetching recommendations:", err);
-      setError(
-        err.response?.data?.error ||
-          "Failed to load recommendations. Please try again."
-      );
+      
+      if (err.response?.status === 401) {
+        setError("Session expired. Please log in again.");
+      } else {
+        setError(
+          err.response?.data?.error ||
+            "Failed to load recommendations. Please try again."
+        );
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleAddToWishlist = async (country) => {
-    try {
-      const userId = localStorage.getItem("userId") || "guest";
+    if (!isAuthenticated) {
+      alert("Please log in to add items to your wishlist");
+      return;
+    }
 
-      await axios.post(`${API_BASE_URL}/api/wishlist`, {
-        userId,
-        countryCode: country.country,
-        countryName: country.country,
-        region: country.region,
-        flagUrl: country.flagUrl,
-      });
+    try {
+      await axios.post(
+        `${API_BASE_URL}/api/wishlist`,
+        {
+          userId: getUserId(),
+          countryCode: country.country,
+          countryName: country.country,
+          region: country.region,
+          flagUrl: country.flagUrl,
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+          }
+        }
+      );
 
       alert(`${country.country} added to your wishlist! ✨`);
     } catch (err) {
       console.error("Error adding to wishlist:", err);
       if (err.response?.status === 400) {
         alert("This country is already in your wishlist!");
+      } else if (err.response?.status === 401) {
+        alert("Session expired. Please log in again.");
       } else {
         alert("Failed to add to wishlist. Please try again.");
       }
@@ -79,15 +111,25 @@ const RecommendationEngine = () => {
   };
 
   const handleFeedback = async (country, liked) => {
-    try {
-      const userId = localStorage.getItem("userId") || "guest";
+    if (!isAuthenticated) {
+      return; // Silently fail for feedback if not authenticated
+    }
 
-      await axios.post(`${API_BASE_URL}/api/recommendations/feedback`, {
-        userId,
-        countryName: country.country,
-        liked,
-        tags: [...(country.matchedVibes || []), ...(country.matchedActivities || [])],
-      });
+    try {
+      await axios.post(
+        `${API_BASE_URL}/api/recommendations/feedback`,
+        {
+          userId: getUserId(),
+          countryName: country.country,
+          liked,
+          tags: [...(country.matchedVibes || []), ...(country.matchedActivities || [])],
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+          }
+        }
+      );
 
       // Show a subtle confirmation
       if (liked) {
@@ -109,6 +151,11 @@ const RecommendationEngine = () => {
             Tell us what kind of experience you're looking for, and we'll find the
             perfect destinations for you
           </p>
+          {user && (
+            <p className="user-welcome">
+              Welcome back, {user.firstName || user.email?.split('@')[0] || 'traveler'}!
+            </p>
+          )}
         </div>
 
         {/* Vibe Selector */}

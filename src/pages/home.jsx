@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Globe, MapPin, Trophy, Newspaper, Cloud, ChefHat, Users, Play, ArrowRight, Star, Zap } from 'lucide-react';
-import AuthModal from "../components/AuthModal";
 import './home.css';
 import { Link } from "react-router-dom";
 
@@ -8,7 +7,6 @@ const WorldExplorerLanding = () => {
   const [selectedCountry, setSelectedCountry] = useState('');
   const [currentFeature, setCurrentFeature] = useState(0);
   const [isVisible, setIsVisible] = useState({});
-  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const features = [
     {
@@ -280,12 +278,6 @@ const WorldExplorerLanding = () => {
           </div>
         </div>
       </footer>
-
-      {/* Auth Modal */}
-      <AuthModal 
-        isOpen={showAuthModal} 
-        onClose={handleCloseModal}
-      />
     </div>
   );
 };

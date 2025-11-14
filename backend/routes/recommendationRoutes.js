@@ -3,6 +3,7 @@ import Country from "../models/Country.js";
 import Visited from "../models/Visited.js";
 import Wishlist from "../models/Wishlist.js";
 import UserPreferences from "../models/UserPreferences.js";
+import { auth, optionalAuth } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -106,17 +107,18 @@ function generateRecommendationReason(country, vibes = [], activities = [], filt
 
 /**
  * POST /api/recommendations
- * Get personalized recommendations from YOUR existing countries database
+ * Get personalized recommendations (with optional auth for filtering)
  */
-router.post("/", async (req, res) => {
+router.post("/", optionalAuth, async (req, res) => {
   try {
     const {
-      userId = "guest",
       vibes = [],
       activities = [],
       filters = {},
       limit = 12,
     } = req.body;
+
+    const userId = req.userId; // Will be "guest" if not authenticated
 
     // Validate input
     if (vibes.length === 0 && activities.length === 0) {
@@ -147,20 +149,22 @@ router.post("/", async (req, res) => {
     // Fetch matching countries from YOUR database
     let countries = await Country.find(query).lean();
 
-    console.log(`Found ${countries.length} matching countries from your database`);
+    console.log(`Found ${countries.length} matching countries for user ${userId}`);
 
-    // Get user's visited and wishlisted countries (from YOUR existing collections)
+    // Get user's visited and wishlisted countries (only if authenticated)
     let visitedCodes = [];
     let wishlistCodes = [];
 
-    if (filters.excludeVisited) {
-      const visited = await Visited.find({ userId }).select("countryCode").lean();
-      visitedCodes = visited.map((v) => v.countryCode);
-    }
+    if (userId !== "guest") {
+      if (filters.excludeVisited) {
+        const visited = await Visited.find({ userId }).select("countryCode").lean();
+        visitedCodes = visited.map((v) => v.countryCode);
+      }
 
-    if (filters.excludeWishlisted) {
-      const wishlist = await Wishlist.find({ userId }).select("countryCode").lean();
-      wishlistCodes = wishlist.map((w) => w.countryCode);
+      if (filters.excludeWishlisted) {
+        const wishlist = await Wishlist.find({ userId }).select("countryCode").lean();
+        wishlistCodes = wishlist.map((w) => w.countryCode);
+      }
     }
 
     // Filter out visited/wishlisted countries
@@ -219,8 +223,7 @@ router.post("/", async (req, res) => {
 
 /**
  * GET /api/recommendations/tags
- * Get all available vibe and activity tags from YOUR database
- * This dynamically fetches unique tags from your existing countries
+ * Get all available vibe and activity tags (public endpoint)
  */
 router.get("/tags", async (req, res) => {
   try {
@@ -259,7 +262,7 @@ router.get("/tags", async (req, res) => {
 
 /**
  * GET /api/recommendations/similar/:countryName
- * Find countries similar to a given country from YOUR database
+ * Find countries similar to a given country (public endpoint)
  */
 router.get("/similar/:countryName", async (req, res) => {
   try {
@@ -333,11 +336,18 @@ router.get("/similar/:countryName", async (req, res) => {
 /**
  * POST /api/recommendations/feedback
  * Record user feedback on recommendations
- * This data can be used for future ML personalization
+ * REQUIRES AUTHENTICATION
  */
-router.post("/feedback", async (req, res) => {
+router.post("/feedback", auth, async (req, res) => {
   try {
-    const { userId = "guest", countryName, liked, tags = [] } = req.body;
+    const { countryName, liked, tags = [] } = req.body;
+    const userId = req.userId; // From auth middleware
+
+    if (!countryName || liked === undefined) {
+      return res.status(400).json({ 
+        error: "countryName and liked are required" 
+      });
+    }
 
     // Find or create user preferences
     let userPrefs = await UserPreferences.findOne({ userId });
@@ -349,6 +359,8 @@ router.post("/feedback", async (req, res) => {
     // Update preferences based on feedback
     userPrefs.updateFromFeedback(countryName, liked, tags);
     await userPrefs.save();
+
+    console.log(`📝 Feedback recorded for user ${userId}: ${countryName} - ${liked ? '👍' : '👎'}`);
 
     res.json({
       success: true,
@@ -368,7 +380,7 @@ router.post("/feedback", async (req, res) => {
 
 /**
  * GET /api/recommendations/stats
- * Get statistics about your countries database
+ * Get statistics about your countries database (public endpoint)
  */
 router.get("/stats", async (req, res) => {
   try {

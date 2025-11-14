@@ -3,12 +3,14 @@ import Country from "../models/Country.js";
 import Visited from "../models/Visited.js";
 import Wishlist from "../models/Wishlist.js";
 import UserPreferences from "../models/UserPreferences.js";
+import { auth, optionalAuth } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
 /**
  * AI-ENHANCED RECOMMENDATION ENGINE
  * Uses user feedback and preferences to personalize recommendations
+ * NOW WITH PROPER AUTHENTICATION
  */
 
 /**
@@ -134,16 +136,19 @@ async function calculateAIMatchScore(country, vibes, activities, filters, userPr
 /**
  * POST /api/ai-recommendations
  * Get AI-powered personalized recommendations
+ * REQUIRES AUTHENTICATION
  */
-router.post("/", async (req, res) => {
+router.post("/", auth, async (req, res) => {
   try {
     const {
-      userId = "guest",
       vibes = [],
       activities = [],
       filters = {},
       limit = 12,
     } = req.body;
+
+    // Use authenticated user ID
+    const userId = req.userId;
 
     // Validate input
     if (vibes.length === 0 && activities.length === 0) {
@@ -155,6 +160,7 @@ router.post("/", async (req, res) => {
     // Load user preferences for AI personalization
     const userPrefs = await UserPreferences.findOne({ userId });
 
+    console.log(`🤖 AI Recommendations for user: ${userId}`);
     console.log(`🤖 AI Mode: ${userPrefs ? 'Personalized' : 'Cold Start'}`);
     if (userPrefs) {
       console.log(`   - Preferred vibes: ${userPrefs.preferredVibes.length}`);
@@ -233,6 +239,8 @@ router.post("/", async (req, res) => {
     // Return recommendations
     const recommendations = scoredCountries.slice(0, limit);
 
+    console.log(`✅ Returning ${recommendations.length} recommendations for ${userId}`);
+
     res.json({
       success: true,
       count: recommendations.length,
@@ -297,10 +305,12 @@ function generateAIReason(country, vibes, activities, userPrefs) {
 /**
  * POST /api/ai-recommendations/learn
  * Update user preferences based on interaction (implicit feedback)
+ * REQUIRES AUTHENTICATION
  */
-router.post("/learn", async (req, res) => {
+router.post("/learn", auth, async (req, res) => {
   try {
-    const { userId = "guest", action, countryName, tags } = req.body;
+    const { action, countryName, tags } = req.body;
+    const userId = req.userId; // Use authenticated user ID
 
     // Actions: "view", "wishlist", "explore", "feedback"
     let userPrefs = await UserPreferences.findOne({ userId });
@@ -320,6 +330,8 @@ router.post("/learn", async (req, res) => {
     }
 
     await userPrefs.save();
+
+    console.log(`📚 Learning from ${action} for user ${userId}: ${countryName}`);
 
     res.json({
       success: true,

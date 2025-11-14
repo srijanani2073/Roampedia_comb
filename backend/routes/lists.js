@@ -1,117 +1,161 @@
 import express from "express";
 import Visited from "../models/Visited.js";
 import Wishlist from "../models/Wishlist.js";
+import { auth } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
 /**
- * GET /api/visited?userId=guest
- * GET /api/wishlist?userId=guest
- * POST /api/visited     body: { userId, countryCode, countryName, region, flagUrl }
- * DELETE /api/visited/:countryCode?userId=guest
- * PUT /api/visited/:id  body: { ...fieldsToUpdate }
- * DELETE /api/visited/:id
- * Same for wishlist under /api/wishlist
+ * UPDATED: All routes now require authentication
+ * User ID is extracted from JWT token instead of request body
  */
 
 // ===== Generic helpers =====
 
 async function listHandler(Model, req, res) {
-  const userId = req.query.userId || req.body.userId;
-  if (!userId) return res.status(400).json({ error: "userId required" });
+  const userId = req.userId; // From auth middleware
 
-  const items = await Model.find({ userId }).sort({ updatedAt: -1 }).lean();
-  res.json(items);
+  try {
+    const items = await Model.find({ userId }).sort({ updatedAt: -1 }).lean();
+    res.json(items);
+  } catch (error) {
+    console.error("listHandler error:", error);
+    res.status(500).json({ error: "Failed to fetch items" });
+  }
 }
 
 async function createHandler(Model, req, res) {
-  const { userId, countryCode, countryName, region, flagUrl } = req.body;
-  if (!userId || !countryCode)
-    return res.status(400).json({ error: "userId and countryCode required" });
+  const userId = req.userId; // From auth middleware
+  const { countryCode, countryName, region, flagUrl } = req.body;
+  
+  if (!countryCode) {
+    return res.status(400).json({ error: "countryCode required" });
+  }
 
   try {
-    const item = await Model.findOneAndUpdate(
-      { userId, countryCode },
-      {
-        userId,
-        countryCode,
-        countryName,
-        region,
-        flagUrl,
-        $setOnInsert: { createdAt: new Date() },
-      },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
-    );
+    // Check if already exists
+    const existing = await Model.findOne({ userId, countryCode });
+    
+    if (existing) {
+      return res.status(400).json({ 
+        error: "Item already exists",
+        item: existing 
+      });
+    }
+
+    const item = await Model.create({
+      userId,
+      countryCode,
+      countryName,
+      region,
+      flagUrl,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    console.log(`✅ Created ${Model.modelName} for user ${userId}: ${countryName}`);
+    
     res.status(201).json(item);
   } catch (err) {
-    console.error("createHandler err", err);
+    console.error("createHandler error:", err);
     res.status(500).json({ error: "Failed to create item" });
   }
 }
 
 async function deleteHandler(Model, req, res) {
   const countryCode = req.params.countryCode;
-  const userId = req.query.userId || req.body.userId;
-  if (!userId || !countryCode)
-    return res.status(400).json({ error: "userId and countryCode required" });
+  const userId = req.userId; // From auth middleware
+  
+  if (!countryCode) {
+    return res.status(400).json({ error: "countryCode required" });
+  }
 
   try {
-    const r = await Model.findOneAndDelete({ userId, countryCode });
-    if (!r) return res.status(404).json({ error: "Not found" });
-    res.json({ success: true, deleted: r });
+    const deleted = await Model.findOneAndDelete({ userId, countryCode });
+    
+    if (!deleted) {
+      return res.status(404).json({ error: "Item not found" });
+    }
+
+    console.log(`🗑️  Deleted ${Model.modelName} for user ${userId}: ${deleted.countryName}`);
+    
+    res.json({ success: true, deleted });
   } catch (err) {
-    console.error("deleteHandler err", err);
+    console.error("deleteHandler error:", err);
     res.status(500).json({ error: "Failed to delete item" });
   }
 }
 
-// ===== NEW: Update by ID =====
+// Update by ID
 async function updateHandler(Model, req, res) {
   try {
     const { id } = req.params;
-    const updated = await Model.findByIdAndUpdate(id, req.body, { new: true });
-    if (!updated) return res.status(404).json({ error: "Item not found" });
-    res.json(updated);
+    const userId = req.userId; // From auth middleware
+
+    // Ensure user can only update their own items
+    const item = await Model.findOne({ _id: id, userId });
+    
+    if (!item) {
+      return res.status(404).json({ error: "Item not found or access denied" });
+    }
+
+    // Update the item
+    Object.assign(item, req.body);
+    item.updatedAt = new Date();
+    await item.save();
+
+    console.log(`📝 Updated ${Model.modelName} for user ${userId}`);
+    
+    res.json(item);
   } catch (err) {
-    console.error("updateHandler err", err);
+    console.error("updateHandler error:", err);
     res.status(500).json({ error: "Failed to update item" });
   }
 }
 
-// ===== NEW: Delete by ID =====
+// Delete by ID
 async function deleteByIdHandler(Model, req, res) {
   try {
     const { id } = req.params;
-    const deleted = await Model.findByIdAndDelete(id);
-    if (!deleted) return res.status(404).json({ error: "Item not found" });
+    const userId = req.userId; // From auth middleware
+
+    // Ensure user can only delete their own items
+    const deleted = await Model.findOneAndDelete({ _id: id, userId });
+    
+    if (!deleted) {
+      return res.status(404).json({ error: "Item not found or access denied" });
+    }
+
+    console.log(`🗑️  Deleted ${Model.modelName} by ID for user ${userId}`);
+    
     res.json({ success: true, deleted });
   } catch (err) {
-    console.error("deleteByIdHandler err", err);
+    console.error("deleteByIdHandler error:", err);
     res.status(500).json({ error: "Failed to delete item" });
   }
 }
 
-// ===== ROUTES =====
+// ===== ROUTES - ALL NOW PROTECTED WITH AUTH =====
 
 /* Visited */
-router.get("/visited", (req, res) => listHandler(Visited, req, res));
-router.post("/visited", (req, res) => createHandler(Visited, req, res));
-router.delete("/visited/:countryCode", (req, res) =>
+router.get("/visited", auth, (req, res) => listHandler(Visited, req, res));
+router.post("/visited", auth, (req, res) => createHandler(Visited, req, res));
+router.delete("/visited/:countryCode", auth, (req, res) =>
   deleteHandler(Visited, req, res)
 );
-router.put("/visited/:id", (req, res) => updateHandler(Visited, req, res));
-router.delete("/visited/id/:id", (req, res) =>
+router.put("/visited/:id", auth, (req, res) => updateHandler(Visited, req, res));
+router.delete("/visited/id/:id", auth, (req, res) =>
   deleteByIdHandler(Visited, req, res)
 );
 
 /* Wishlist */
-router.get("/wishlist", (req, res) => listHandler(Wishlist, req, res));
-router.post("/wishlist", (req, res) => createHandler(Wishlist, req, res));
-router.delete("/wishlist/:countryCode", (req, res) =>
+router.get("/wishlist", auth, (req, res) => listHandler(Wishlist, req, res));
+router.post("/wishlist", auth, (req, res) => createHandler(Wishlist, req, res));
+router.delete("/wishlist/:countryCode", auth, (req, res) =>
   deleteHandler(Wishlist, req, res)
 );
-router.put("/wishlist/:id", (req, res) => updateHandler(Wishlist, req, res));
-router.delete("/wishlist/id/:id", (req, res) =>
+router.put("/wishlist/:id", auth, (req, res) => updateHandler(Wishlist, req, res));
+router.delete("/wishlist/id/:id", auth, (req, res) =>
   deleteByIdHandler(Wishlist, req, res)
 );
 
