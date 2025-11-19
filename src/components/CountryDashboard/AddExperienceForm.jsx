@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import apiClient from "../../utils/api";
+import { useAuth } from "../../contexts/AuthContext";
 
 const AddExperienceForm = ({ selectedCountry, onClose }) => {
+  const { isAuthenticated } = useAuth();
   const [countryName, setCountryName] = useState(selectedCountry || "");
   const [experience, setExperience] = useState("");
   const [themes, setThemes] = useState([]);
@@ -10,7 +12,8 @@ const AddExperienceForm = ({ selectedCountry, onClose }) => {
   const [toDate, setToDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [existingExperiences, setExistingExperiences] = useState([]); // ✅ For READ operation
+  const [existingExperiences, setExistingExperiences] = useState([]);
+  const [error, setError] = useState(null);
 
   const maxThemes = 2;
 
@@ -30,25 +33,34 @@ const AddExperienceForm = ({ selectedCountry, onClose }) => {
     setCountryName(selectedCountry || "");
   }, [selectedCountry]);
 
-  // ✅ Fetch existing experiences (READ)
+  // ✅ Fetch existing experiences (READ) - Only if authenticated
   useEffect(() => {
     const fetchExperiences = async () => {
-      if (!countryName) return;
+      if (!countryName || !isAuthenticated) return;
+      
       setLoading(true);
+      setError(null);
+      
       try {
-        const res = await axios.get(
-          `http://localhost:5050/api/experiences?country=${countryName}`
+        // ✅ Using apiClient which automatically adds auth token
+        const res = await apiClient.get(
+          `/api/experiences?country=${encodeURIComponent(countryName)}`
         );
         setExistingExperiences(res.data);
       } catch (err) {
         console.error("❌ Error fetching experiences:", err);
+        if (err.response?.status === 401) {
+          setError("Please log in to view your experiences");
+        } else {
+          setError("Failed to load experiences");
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchExperiences();
-  }, [countryName]);
+  }, [countryName, isAuthenticated]);
 
   const handleThemeSelect = (theme) => {
     if (themes.includes(theme)) {
@@ -70,6 +82,11 @@ const AddExperienceForm = ({ selectedCountry, onClose }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (!isAuthenticated) {
+      alert("Please log in to add an experience");
+      return;
+    }
+
     console.log({ countryName, experience, themes, rating, fromDate, toDate });
 
     if (!countryName) {
@@ -82,10 +99,12 @@ const AddExperienceForm = ({ selectedCountry, onClose }) => {
     }
 
     setSaving(true);
+    setError(null);
 
     try {
-      await axios.post("http://localhost:5050/api/experiences/add", {
-        userId: "guest", // temporary
+      // ✅ Using apiClient which automatically adds auth token
+      // ✅ No need to send userId - backend extracts it from token
+      await apiClient.post("/api/experiences/add", {
         country: countryName,
         experience,
         themes,
@@ -102,40 +121,61 @@ const AddExperienceForm = ({ selectedCountry, onClose }) => {
       setToDate("");
 
       // ✅ Refresh after saving
-      const res = await axios.get(
-        `http://localhost:5050/api/experiences?country=${countryName}`
+      const res = await apiClient.get(
+        `/api/experiences?country=${encodeURIComponent(countryName)}`
       );
       setExistingExperiences(res.data);
 
     } catch (err) {
       console.error("❌ Error saving experience:", err);
-      alert("Failed to save experience. Check console for details.");
+      if (err.response?.status === 401) {
+        alert("Your session has expired. Please log in again.");
+      } else {
+        alert(err.response?.data?.error || "Failed to save experience. Check console for details.");
+      }
     } finally {
       setSaving(false);
     }
   };
 
+  // ✅ Show login prompt if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="add-experience-form">
+        <h3>Share Your Experience</h3>
+        <div className="auth-required-message">
+          <p>🔒 Please log in to add your travel experiences</p>
+          <button className="login-prompt-btn" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="add-experience-form">
       <h3>Share Your Experience in {countryName || "this country"}</h3>
+
+      {error && <div className="error-message">{error}</div>}
 
       {/* ✅ Existing Experiences */}
       {loading ? (
         <p>Loading past experiences...</p>
       ) : existingExperiences.length > 0 ? (
         <div className="existing-experiences">
-          <h4>Previous Experiences</h4>
+          <h4>Your Previous Experiences</h4>
           {existingExperiences.map((exp) => (
             <div key={exp._id} className="experience-card">
               <p><strong>Notes:</strong> {exp.experience}</p>
               <p><strong>Themes:</strong> {exp.themes.join(", ")}</p>
               <p><strong>Rating:</strong> {exp.rating}/10</p>
-              <p><strong>Stay:</strong> {exp.fromDate} → {exp.toDate}</p>
+              <p><strong>Stay:</strong> {new Date(exp.fromDate).toLocaleDateString()} → {new Date(exp.toDate).toLocaleDateString()}</p>
             </div>
           ))}
         </div>
       ) : (
-        <p>No previous experiences yet.</p>
+        <p>No previous experiences yet. Be the first to share!</p>
       )}
 
       <form onSubmit={handleSubmit}>

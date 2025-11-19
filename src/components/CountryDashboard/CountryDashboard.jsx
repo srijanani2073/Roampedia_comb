@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
+import apiClient from "../../utils/api"; // ✅ Import apiClient for authenticated requests
 import { motion, AnimatePresence } from "framer-motion";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
@@ -18,8 +19,10 @@ import BestTimeToVisit from "./BestTimeToVisit";
 import TravelListManager from "./TravelListManager";
 import ExperienceModal from "./ExperienceModal";
 import AddExperienceForm from "./AddExperienceForm";
+import AuthModal from "../AuthModal";
 
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
 
 import "./CountryDashboard.css";
 import "leaflet/dist/leaflet.css";
@@ -34,14 +37,11 @@ import "leaflet/dist/leaflet.css";
  * - cacheTTL (ms) optional: default 15 minutes
  *
  * Changes in this version:
- * - Wired up Visited / Wishlist actions to call a backend API (API_BASE).
- * - Added effect to sync state with server-side lists on mount / country change.
- * - Kept in-memory cache & UI behavior intact so frontend works even if backend is missing.
+ * - ✅ ALL database operations (Visited, Wishlist, Experiences) now require authentication
+ * - ✅ Added login prompts for unauthenticated users
+ * - ✅ User ID automatically extracted from auth context
+ * - ✅ Using apiClient for authenticated backend requests
  */
-
-// Backend API to be implemented separately (Express + MongoDB).
-const API_BASE = "http://localhost:5050/api"; // <-- change to your deployed server when ready
-const USER_ID = "guest"; // temporary user identifier for now
 
 export default function CountryDashboard({
   countryCode,
@@ -50,6 +50,10 @@ export default function CountryDashboard({
   cacheTTL = 1000 * 60 * 15,
 }) {
   const NEWSDATA_API_KEY = "pub_9eeba8abf7fc48a681df8f921c969433";
+  
+  // Authentication
+  const { user, isAuthenticated } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -210,71 +214,60 @@ export default function CountryDashboard({
         if (mounted) setNews(newsCached);
 
         // 5) Exchange rates
-        let exCached = getCacheValue("ex");
-        if (!exCached) {
+        let ex = getCacheValue("exchange");
+        if (!ex) {
           try {
-            const base = normalized.currencyCode || "USD";
-            const exUrl = `https://api.exchangerate.host/latest?base=${base}`;
-            const exresp = await axios.get(exUrl);
-            exCached = exresp.data;
-            setCacheValue("ex", exCached, 1000 * 60 * 60);
-          } catch (ee) {
-            console.warn("exchangerate.host err", ee);
-            exCached = null;
+            const xr = await axios.get("https://api.exchangerate-api.com/v4/latest/USD");
+            ex = xr.data;
+            setCacheValue("exchange", ex, 1000 * 60 * 60);
+          } catch (xe) {
+            console.warn("exchange fetch err", xe);
           }
         }
-        if (mounted) setExchangeRates(exCached);
+        if (mounted) setExchangeRates(ex);
 
-        // 6) Wikidata facts
-        let wdCached = getCacheValue("wikidata");
-        if (!wdCached) {
+        // 6) Wikipedia summary
+        let wiki = getCacheValue("wiki");
+        if (!wiki) {
           try {
-            const q = `
-              SELECT ?capitalLabel ?inception ?officialLangLabel ?anthemLabel ?mottoLabel WHERE {
-                ?country rdfs:label "${normalized.name}"@en.
-                OPTIONAL { ?country wdt:P36 ?capital. }
-                OPTIONAL { ?country wdt:P571 ?inception. }
-                OPTIONAL { ?country wdt:P37 ?officialLang. }
-                OPTIONAL { ?country wdt:P85 ?anthem. }
-                OPTIONAL { ?country wdt:P1459 ?motto. }
-                SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
-              } LIMIT 1
-            `;
-            const wdUrl = "https://query.wikidata.org/sparql";
-            const r = await axios.get(wdUrl, {
-              params: { query: q, format: "json" },
-              headers: { Accept: "application/sparql-results+json" },
-            });
-            wdCached = r.data?.results?.bindings?.[0] || null;
-            setCacheValue("wikidata", wdCached, 1000 * 60 * 60 * 24);
-          } catch (wde) {
-            console.warn("wikidata err", wde);
-            wdCached = null;
-          }
-        }
-        if (mounted) setWikidataFacts(wdCached);
-
-        // 7) Wikipedia summary
-        let wikiCached = getCacheValue("wiki");
-        if (!wikiCached) {
-          try {
-            const page = encodeURIComponent(normalized.name);
-            const wikiUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${page}`;
-            const wr = await axios.get(wikiUrl);
-            wikiCached = wr.data;
-            setCacheValue("wiki", wikiCached, 1000 * 60 * 60 * 24);
+            const wikiName = encodeURIComponent(normalized.name);
+            const wkr = await axios.get(
+              `https://en.wikipedia.org/api/rest_v1/page/summary/${wikiName}`
+            );
+            wiki = {
+              extract: wkr.data.extract || "",
+              url: wkr.data.content_urls?.desktop?.page || "",
+            };
+            setCacheValue("wiki", wiki, 1000 * 60 * 60 * 24);
           } catch (we) {
-            console.warn("wikipedia err", we);
-            wikiCached = null;
+            console.warn("wiki fetch err", we);
           }
         }
-        if (mounted) setWikiSummary(wikiCached);
+        if (mounted) setWikiSummary(wiki);
+
+        // 7) Wikidata fun facts
+        let wikidata = getCacheValue("wikidata");
+        if (!wikidata) {
+          try {
+            const wdRes = await fetchWikidataFacts(normalized.name);
+            wikidata = wdRes;
+            setCacheValue("wikidata", wikidata, 1000 * 60 * 60 * 24 * 7);
+          } catch (wd) {
+            console.warn("wikidata fetch err", wd);
+          }
+        }
+        if (mounted) setWikidataFacts(wikidata);
+
+        // 8) ✅ Load user's visited/wishlist status if authenticated
+        if (isAuthenticated) {
+          await loadUserStatus(normalized.cca3 || normalized.cca2);
+        }
 
         if (mounted) setLoading(false);
       } catch (err) {
-        console.error(err);
+        console.error("fetchAll error:", err);
         if (mounted) {
-          setError(err.message || "Failed to load");
+          setError(err.message || "Failed to load country data");
           setLoading(false);
         }
       }
@@ -284,202 +277,163 @@ export default function CountryDashboard({
 
     return () => {
       mounted = false;
-      stopClock();
+      if (clockRef.current) clearInterval(clockRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [countryCode]);
+  }, [countryCode, isAuthenticated]);
 
-  // Sync visited/wishlist state from backend for the current user and country
-  useEffect(() => {
-    if (!countryCode) return;
-    let mounted = true;
-
-    async function fetchUserLists() {
-      try {
-        const [vRes, wRes] = await Promise.all([
-          axios.get(`${API_BASE}/visited`, { params: { userId: USER_ID } }),
-          axios.get(`${API_BASE}/wishlist`, { params: { userId: USER_ID } }),
-        ]);
-
-        const visitedList = Array.isArray(vRes.data) ? vRes.data : [];
-        const wishlist = Array.isArray(wRes.data) ? wRes.data : [];
-
-        const visitedCodes = visitedList.map((c) => c.countryCode);
-        const wishlistCodes = wishlist.map((c) => c.countryCode);
-
-        const code = (country && (country.cca3 || country.cca2)) || countryCode;
-        if (mounted) {
-          setIsVisited(visitedCodes.includes(code));
-          setIsWishlisted(wishlistCodes.includes(code));
-          // update session-only map too
-          setCountryStatus((prev) => ({
-            ...prev,
-            [code]: { visited: visitedCodes.includes(code), wishlist: wishlistCodes.includes(code) },
-          }));
-        }
-      } catch (err) {
-        // If backend not reachable, don't break UI — keep in-memory state
-        console.warn("Could not sync lists with backend:", err.message || err);
-      }
-    }
-
-    fetchUserLists();
-
-    return () => {
-      mounted = false;
-    };
-  }, [countryCode, country]);
-
-  const formatOffset = (offsetSeconds) => {
-    const hours = Math.floor(Math.abs(offsetSeconds) / 3600);
-    const minutes = Math.floor((Math.abs(offsetSeconds) % 3600) / 60);
-    const sign = offsetSeconds >= 0 ? "+" : "-";
-    return `${sign}${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
-  };
-
-  const calculateFallbackTimezone = (timezoneStr) => {
-    timezoneStr = timezoneStr || "UTC";
-
-    const offsetMatch = timezoneStr.match(/UTC([+-]\d{1,2}(?::\d{2})?)/);
-    let offsetHours = 0;
-    let offsetMinutes = 0;
-    let displayOffset = "+00:00";
-
-    if (offsetMatch) {
-      const offsetStr = offsetMatch[1];
-      const parts = offsetStr.split(":");
-      offsetHours = parseInt(parts[0], 10);
-      offsetMinutes = parts[1] ? parseInt(parts[1], 10) : 0;
-
-      const sign = offsetHours >= 0 ? "+" : "";
-      const absHours = Math.abs(offsetHours);
-      displayOffset = `${sign}${String(absHours).padStart(2, "0")}:${String(Math.abs(offsetMinutes)).padStart(2, "0")}`;
-    } else {
-      const tzOffsets = {
-        "Asia/Kolkata": 5.5,
-        "Asia/Tokyo": 9,
-        "Asia/Dubai": 4,
-        "Europe/London": 0,
-        "Europe/Paris": 1,
-        "Europe/Moscow": 3,
-        "America/New_York": -5,
-        "America/Los_Angeles": -8,
-        "America/Chicago": -6,
-        "Australia/Sydney": 10,
-        "Pacific/Auckland": 12,
-      };
-
-      const matchedZone = Object.keys(tzOffsets).find((zone) => timezoneStr.includes(zone));
-      if (matchedZone) {
-        offsetHours = Math.floor(tzOffsets[matchedZone]);
-        offsetMinutes = (tzOffsets[matchedZone] % 1) * 60;
-        const sign = offsetHours >= 0 ? "+" : "";
-        const absHours = Math.abs(offsetHours);
-        displayOffset = `${sign}${String(absHours).padStart(2, "0")}:${String(Math.abs(offsetMinutes)).padStart(2, "0")}`;
-      }
-    }
-
-    const now = new Date();
-    const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-    const totalOffsetMs = offsetHours * 3600000 + offsetMinutes * 60000 * Math.sign(offsetHours);
-    const localDate = new Date(utc + totalOffsetMs);
-
-    return {
-      timezone: timezoneStr,
-      utc_offset: displayOffset,
-      datetime: localDate.toISOString(),
-      gmtOffset: offsetHours * 3600 + offsetMinutes * 60 * Math.sign(offsetHours),
-      timestamp: Math.floor(localDate.getTime() / 1000),
-    };
-  };
-
-  function startClock(tz) {
-    stopClock();
-    if (!tz?.datetime) {
-      setLocalTime(null);
-      return;
-    }
-
-    const baseTime = new Date(tz.datetime);
-    const startTimestamp = Date.now();
-
-    function tick() {
-      try {
-        const elapsedSeconds = Math.floor((Date.now() - startTimestamp) / 1000);
-        const currentTime = new Date(baseTime.getTime() + elapsedSeconds * 1000);
-
-        const hours = String(currentTime.getUTCHours()).padStart(2, "0");
-        const minutes = String(currentTime.getUTCMinutes()).padStart(2, "0");
-        const seconds = String(currentTime.getUTCSeconds()).padStart(2, "0");
-
-        setLocalTime(`${hours}:${minutes}:${seconds}`);
-      } catch (e) {
-        console.warn("tick err", e);
-      }
-    }
-
-    tick();
-    clockRef.current = setInterval(tick, 1000);
-  }
-
-  function stopClock() {
-    if (clockRef.current) {
-      clearInterval(clockRef.current);
-      clockRef.current = null;
-    }
-  }
-
-  const extractAccentFromFlag = async (flagUrl) => {
-    if (!flagUrl) return null;
+  // ✅ Load user's visited/wishlist status using apiClient
+  const loadUserStatus = async (code) => {
     try {
+      // ✅ Using apiClient which automatically adds auth token
+      const [visitedRes, wishlistRes] = await Promise.all([
+        apiClient.get("/api/visited"),
+        apiClient.get("/api/wishlist")
+      ]);
+
+      const visited = visitedRes.data.some(item => item.countryCode === code);
+      const wishlisted = wishlistRes.data.some(item => item.countryCode === code);
+
+      setIsVisited(visited);
+      setIsWishlisted(wishlisted);
+    } catch (err) {
+      console.error("Error loading user status:", err);
+      // Don't show error to user as this is a background operation
+    }
+  };
+
+  // Helper: Wikidata SPARQL query for country facts
+  async function fetchWikidataFacts(countryName) {
+    const sparql = `
+      SELECT ?countryLabel ?population ?area ?gdp ?currency WHERE {
+        ?country wdt:P31 wd:Q6256 ;
+                 rdfs:label "${countryName}"@en .
+        OPTIONAL { ?country wdt:P1082 ?population . }
+        OPTIONAL { ?country wdt:P2046 ?area . }
+        OPTIONAL { ?country wdt:P2131 ?gdp . }
+        OPTIONAL { ?country wdt:P38 ?currencyItem . ?currencyItem rdfs:label ?currency FILTER (LANG(?currency)='en') . }
+        SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE],en". }
+      } LIMIT 1
+    `;
+    const url = `https://query.wikidata.org/sparql?query=${encodeURIComponent(
+      sparql
+    )}&format=json`;
+    const res = await axios.get(url, {
+      headers: { Accept: "application/sparql-results+json" },
+    });
+    const bindings = res.data?.results?.bindings;
+    if (!bindings || !bindings.length) return null;
+
+    const b = bindings[0];
+    return {
+      population: b.population?.value || null,
+      area: b.area?.value || null,
+      gdp: b.gdp?.value || null,
+      currency: b.currency?.value || null,
+    };
+  }
+
+  // Helper: extract accent from flag
+  async function extractAccentFromFlag(flagUrl) {
+    if (!flagUrl) return null;
+    return new Promise((resolve) => {
       const img = new Image();
       img.crossOrigin = "Anonymous";
-      const p = new Promise((res, rej) => {
-        img.onload = () => res();
-        img.onerror = rej;
-      });
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return resolve(null);
+        ctx.drawImage(img, 0, 0);
+        try {
+          const { data } = ctx.getImageData(0, 0, img.width, img.height);
+          const colors = [];
+          for (let i = 0; i < data.length; i += 16) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const a = data[i + 3];
+            if (a > 200) {
+              const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+              if (lum > 40 && lum < 220) {
+                colors.push({ r, g, b });
+              }
+            }
+          }
+          if (!colors.length) return resolve(null);
+          const avgR = Math.round(
+            colors.reduce((s, c) => s + c.r, 0) / colors.length
+          );
+          const avgG = Math.round(
+            colors.reduce((s, c) => s + c.g, 0) / colors.length
+          );
+          const avgB = Math.round(
+            colors.reduce((s, c) => s + c.b, 0) / colors.length
+          );
+          resolve(`rgb(${avgR},${avgG},${avgB})`);
+        } catch (e) {
+          console.warn("Canvas error extracting color", e);
+          resolve(null);
+        }
+      };
+      img.onerror = () => resolve(null);
       img.src = flagUrl;
-      await p;
-      const canvas = document.createElement("canvas");
-      const w = Math.min(160, img.width);
-      const h = Math.min(100, img.height);
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0, w, h);
-      const data = ctx.getImageData(w / 4, h / 4, Math.floor(w / 2), Math.floor(h / 2)).data;
-      let r = 0,
-        g = 0,
-        b = 0,
-        count = 0;
-      for (let i = 0; i < data.length; i += 4) {
-        const alpha = data[i + 3];
-        if (alpha === 0) continue;
-        r += data[i];
-        g += data[i + 1];
-        b += data[i + 2];
-        count++;
-      }
-      if (!count) return null;
-      r = Math.round(r / count);
-      g = Math.round(g / count);
-      b = Math.round(b / count);
-      return `rgb(${r}, ${g}, ${b})`;
-    } catch (e) {
-      console.warn("accent extract failed", e);
-      return null;
+    });
+  }
+
+  // Helper: format UTC offset
+  function formatOffset(seconds) {
+    const hours = Math.floor(Math.abs(seconds) / 3600);
+    const minutes = Math.floor((Math.abs(seconds) % 3600) / 60);
+    const sign = seconds >= 0 ? "+" : "-";
+    const hh = String(hours).padStart(2, "0");
+    const mm = String(minutes).padStart(2, "0");
+    return `${sign}${hh}:${mm}`;
+  }
+
+  // Fallback timezone
+  function calculateFallbackTimezone(tzString) {
+    if (!tzString) {
+      return { timezone: "Unknown", utc_offset: "+00:00", datetime: new Date().toISOString() };
     }
-  };
+    const match = tzString.match(/(UTC|GMT)([\+\-]\d+)/i);
+    if (!match) {
+      return { timezone: tzString, utc_offset: "+00:00", datetime: new Date().toISOString() };
+    }
+    const sign = match[2].startsWith("-") ? -1 : 1;
+    const offset = parseInt(match[2].replace(/[\+\-]/, ""), 10);
+    const totalSeconds = sign * offset * 3600;
+    return {
+      timezone: tzString,
+      utc_offset: formatOffset(totalSeconds),
+      datetime: new Date(Date.now() + totalSeconds * 1000).toISOString(),
+      timestamp: Math.floor(Date.now() / 1000),
+      gmtOffset: totalSeconds,
+    };
+  }
 
-  // Leaflet marker fix
-  delete L.Icon.Default.prototype._getIconUrl;
-  L.Icon.Default.mergeOptions({
-    iconRetinaUrl: markerIcon2x,
-    iconUrl: markerIcon,
-    shadowUrl: markerShadow,
-  });
+  // Start local clock
+  function startClock(tzData) {
+    if (!tzData) return;
+    if (clockRef.current) clearInterval(clockRef.current);
+    
+    const updateLocalTime = () => {
+      if (!tzData.gmtOffset) {
+        setLocalTime(new Date().toLocaleTimeString());
+        return;
+      }
+      const now = new Date();
+      const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+      const local = new Date(utc + tzData.gmtOffset * 1000);
+      setLocalTime(local.toLocaleTimeString());
+    };
 
-  const statusKey = country?.cca3 || country?.cca2 || country?.name || countryCode || "nocode";
+    updateLocalTime();
+    clockRef.current = setInterval(updateLocalTime, 1000);
+  }
+
+  // Status helpers
+  const statusKey = country?.cca3 || country?.cca2 || countryCode;
 
   useEffect(() => {
     if (!country) {
@@ -492,13 +446,18 @@ export default function CountryDashboard({
     setIsWishlisted(Boolean(s?.wishlist));
   }, [country, countryStatus, statusKey]);
 
-  // Toggle functions now call backend endpoints (POST/DELETE) and update UI optimistically.
+  // ✅ Toggle Visited - REQUIRES AUTHENTICATION
   const toggleVisited = async () => {
+    // Check authentication first
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
+
     try {
       if (!country) return;
       const code = country.cca3 || country.cca2 || countryCode;
       const payload = {
-        userId: USER_ID,
         countryCode: code,
         countryName: country.name,
         region: country.region,
@@ -515,10 +474,12 @@ export default function CountryDashboard({
 
       if (isVisited) {
         // currently visited -> remove
-        await axios.delete(`${API_BASE}/visited/${encodeURIComponent(code)}`, { params: { userId: USER_ID } });
+        // ✅ Using apiClient which automatically adds auth token
+        await apiClient.delete(`/api/visited/${encodeURIComponent(code)}`);
       } else {
         // currently not visited -> add
-        await axios.post(`${API_BASE}/visited`, payload);
+        // ✅ Using apiClient which automatically adds auth token
+        await apiClient.post("/api/visited", payload);
       }
     } catch (err) {
       // revert optimistic update on failure
@@ -529,15 +490,26 @@ export default function CountryDashboard({
         const next = { ...cur, visited: !cur.visited };
         return { ...prev, [statusKey]: next };
       });
+      
+      // Show auth modal if 401 error
+      if (err.response?.status === 401) {
+        setShowAuthModal(true);
+      }
     }
   };
 
+  // ✅ Toggle Wishlist - REQUIRES AUTHENTICATION
   const toggleWishlist = async () => {
+    // Check authentication first
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
+
     try {
       if (!country) return;
       const code = country.cca3 || country.cca2 || countryCode;
       const payload = {
-        userId: USER_ID,
         countryCode: code,
         countryName: country.name,
         region: country.region,
@@ -554,10 +526,12 @@ export default function CountryDashboard({
 
       if (isWishlisted) {
         // remove from wishlist
-        await axios.delete(`${API_BASE}/wishlist/${encodeURIComponent(code)}`, { params: { userId: USER_ID } });
+        // ✅ Using apiClient which automatically adds auth token
+        await apiClient.delete(`/api/wishlist/${encodeURIComponent(code)}`);
       } else {
         // add to wishlist
-        await axios.post(`${API_BASE}/wishlist`, payload);
+        // ✅ Using apiClient which automatically adds auth token
+        await apiClient.post("/api/wishlist", payload);
       }
     } catch (err) {
       // revert optimistic update on failure
@@ -568,7 +542,27 @@ export default function CountryDashboard({
         const next = { ...cur, wishlist: !cur.wishlist };
         return { ...prev, [statusKey]: next };
       });
+      
+      // Show auth modal if 401 error
+      if (err.response?.status === 401) {
+        setShowAuthModal(true);
+      }
     }
+  };
+
+  // ✅ Handle Add Experience - REQUIRES AUTHENTICATION
+  const handleAddExperience = () => {
+    if (!isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
+
+    if (!isVisited) {
+      alert("Please mark this country as visited first before adding an experience!");
+      return;
+    }
+
+    setShowExperienceForm(true);
   };
 
   return (
@@ -603,7 +597,10 @@ export default function CountryDashboard({
               <button
                 className={`icon-btn ${isVisited ? "active-visited" : ""}`}
                 onClick={toggleVisited}
-                title={isVisited ? "Remove from Visited" : "Mark as Visited"}
+                title={isAuthenticated 
+                  ? (isVisited ? "Remove from Visited" : "Mark as Visited")
+                  : "Login to mark as visited"
+                }
                 aria-pressed={isVisited}
                 aria-label={isVisited ? "Visited — selected" : "Mark as visited"}
               >
@@ -613,7 +610,10 @@ export default function CountryDashboard({
               <button
                 className={`icon-btn ${isWishlisted ? "active-wishlist" : ""}`}
                 onClick={toggleWishlist}
-                title={isWishlisted ? "Remove from Wishlist" : "Add to Wishlist"}
+                title={isAuthenticated
+                  ? (isWishlisted ? "Remove from Wishlist" : "Add to Wishlist")
+                  : "Login to add to wishlist"
+                }
                 aria-pressed={isWishlisted}
                 aria-label={isWishlisted ? "Wishlisted — selected" : "Add to wishlist"}
               >
@@ -622,9 +622,14 @@ export default function CountryDashboard({
 
               <button
                 className={`icon-btn ${isVisited ? "active-plus" : "disabled-plus"}`}
-                onClick={() => setShowExperienceForm(true)}
-                title={isVisited ? "Add your travel experience" : "Mark visited first"}
-                disabled={!isVisited}
+                onClick={handleAddExperience}
+                title={!isAuthenticated 
+                  ? "Login to add experience"
+                  : isVisited 
+                    ? "Add your travel experience" 
+                    : "Mark visited first"
+                }
+                disabled={!isAuthenticated || !isVisited}
               >
                 <FaPlus />
               </button>
@@ -632,27 +637,29 @@ export default function CountryDashboard({
               <button className="btn" onClick={onClose} title="Close">
                 ✕
               </button>
+              
+              {/* Experience Form Modal */}
               {showExperienceForm && (
-  <div className="experience-modal-overlay">
-    <div className="experience-modal">
-      <button
-        className="close-modal-btn"
-        onClick={() => setShowExperienceForm(false)}
-      >
-        ✕
-      </button>
-      <ExperienceModal
-        isOpen={showExperienceForm}
-        onClose={() => setShowExperienceForm(false)}
-      >
-        <AddExperienceForm
-          selectedCountry={country?.name || countryName || countryCode}
-          onClose={() => setShowExperienceForm(false)}
-        />
-      </ExperienceModal>
-    </div>
-  </div>
-)}
+                <div className="experience-modal-overlay">
+                  <div className="experience-modal">
+                    <button
+                      className="close-modal-btn"
+                      onClick={() => setShowExperienceForm(false)}
+                    >
+                      ✕
+                    </button>
+                    <ExperienceModal
+                      isOpen={showExperienceForm}
+                      onClose={() => setShowExperienceForm(false)}
+                    >
+                      <AddExperienceForm
+                        selectedCountry={country?.name || countryName || countryCode}
+                        onClose={() => setShowExperienceForm(false)}
+                      />
+                    </ExperienceModal>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -698,7 +705,7 @@ export default function CountryDashboard({
                 </div>
 
                 <div className="right-col">
-                  <TravelListManager country={country} userId="guest" />
+                  <TravelListManager country={country} />
                   <div className="card map-card">
                     <div className="card-header">Map</div>
                     <div className="card-body map-body">
@@ -763,6 +770,14 @@ export default function CountryDashboard({
               </div>
             )}
           </div>
+
+          {/* Auth Modal */}
+          {showAuthModal && (
+            <AuthModal
+              isOpen={showAuthModal}
+              onClose={() => setShowAuthModal(false)}
+            />
+          )}
         </motion.aside>
       )}
     </AnimatePresence>

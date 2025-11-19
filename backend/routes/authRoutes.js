@@ -2,12 +2,12 @@ import express from "express";
 import jwt from "jsonwebtoken";
 import { body, validationResult } from "express-validator";
 import User from "../models/User.js";
-import { auth, rateLimit } from "../middleware/authMiddleware.js";
+import { auth, rateLimit } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
 // JWT Configuration
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-change-this";
+const JWT_SECRET = process.env.JWT_SECRET || "0bd8bf735d86f36ca8c04f512508e89ca4cc1dbae2a07af0e28464238bdc8e1fcb6ab73f34bde2c4883ab84e487df2c478e04196696f76cb0bbf1e7e8f4be759";
 const JWT_EXPIRES_IN = "24h"; // Access token expires in 24 hours
 const REFRESH_TOKEN_EXPIRES_IN = "30d"; // Refresh token expires in 30 days
 
@@ -152,6 +152,8 @@ router.post(
           error: "Invalid email or password",
         });
       }
+      console.log("SIGNING TOKEN WITH SECRET =", process.env.JWT_SECRET);
+
 
       // Generate tokens
       const { accessToken, refreshToken } = generateTokens(user._id);
@@ -162,6 +164,7 @@ router.post(
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         device: req.headers["user-agent"] || "Unknown",
       });
+      console.log("SIGNING TOKEN WITH SECRET =", process.env.JWT_SECRET);
 
       // Update last login
       user.lastLogin = new Date();
@@ -199,6 +202,8 @@ router.post("/refresh", async (req, res) => {
         error: "Refresh token required",
       });
     }
+    console.log("SIGNING TOKEN WITH SECRET =", process.env.JWT_SECRET);
+
 
     // Verify refresh token
     const decoded = jwt.verify(refreshToken, JWT_SECRET);

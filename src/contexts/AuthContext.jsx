@@ -1,12 +1,9 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
+import apiClient from '../utils/api';
 import axios from 'axios';
 
 const AuthContext = createContext(null);
 
-/**
- * Authentication Context Provider
- * Manages user authentication state and provides auth methods to all components
- */
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -14,86 +11,84 @@ export function AuthProvider({ children }) {
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5050';
 
-  /**
-   * Setup axios defaults with auth token
-   */
-  const setupAxios = (token) => {
+  /** Store access token */
+  const setupToken = (token) => {
     if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       localStorage.setItem('accessToken', token);
     } else {
-      delete axios.defaults.headers.common['Authorization'];
       localStorage.removeItem('accessToken');
     }
   };
 
-  /**
-   * Check if user is authenticated on mount
-   */
   useEffect(() => {
     checkAuth();
   }, []);
 
-  /**
-   * Check authentication status
-   */
+  /** 🔍 Check current authentication status */
   const checkAuth = async () => {
     try {
       const token = localStorage.getItem('accessToken');
-      
+
       if (!token) {
+        setUser(null);
         setLoading(false);
         return;
       }
 
-      setupAxios(token);
+      // Check who user is — apiClient attaches Authorization header
+      const response = await apiClient.get('/api/auth/me');
 
-      // Verify token is still valid
-      const response = await axios.get(`${API_BASE_URL}/api/auth/me`);
-      
       setUser(response.data.user);
       setLoading(false);
     } catch (error) {
-      console.error('Auth check failed:', error);
-      
-      // Token expired or invalid - try to refresh
-      await tryRefreshToken();
+      console.warn("Auth check failed:", error?.response?.status);
+
+      // NO TOKEN? → do nothing
+      const stored = localStorage.getItem('accessToken');
+      if (!stored) {
+        setLoading(false);
+        return;
+      }
+
+      // If token failed, try refreshing
+      await safeRefreshFlow();
     }
   };
 
-  /**
-   * Try to refresh access token
-   */
-  const tryRefreshToken = async () => {
+  /** 🔁 Safe refresh flow — without infinite logout & popup */
+  const safeRefreshFlow = async () => {
     try {
       const refreshToken = localStorage.getItem('refreshToken');
-      
       if (!refreshToken) {
-        throw new Error('No refresh token');
+        setUser(null);
+        setLoading(false);
+        return;
       }
 
+      // Try refreshing token
       const response = await axios.post(`${API_BASE_URL}/api/auth/refresh`, {
         refreshToken,
       });
 
       const { accessToken } = response.data;
-      setupAxios(accessToken);
+      setupToken(accessToken);
 
-      // Get user info with new token
-      const userResponse = await axios.get(`${API_BASE_URL}/api/auth/me`);
-      setUser(userResponse.data.user);
-      setLoading(false);
-    } catch (error) {
-      console.error('Token refresh failed:', error);
-      // Refresh failed - user needs to log in again
-      logout();
+      // With new token, fetch user
+      const userRes = await apiClient.get('/api/auth/me');
+      setUser(userRes.data.user);
+
+    } catch (err) {
+      console.warn("Refresh failed — staying logged out until manual login:", err);
+
+      // Allow UI to show login button instead of popup loop
+      setUser(null);
     }
+
+    setLoading(false);
   };
 
-  /**
-   * Register new user
-   */
-  const register = async (email, password, firstName, lastName, username) => {
+  /** 🟢 Register */
+  const register = async (email, password, firstName, lastName) => {
     try {
       setError(null);
       setLoading(true);
@@ -103,19 +98,21 @@ export function AuthProvider({ children }) {
         password,
         firstName,
         lastName,
-        username
       });
 
       const { user, accessToken, refreshToken } = response.data;
 
-      // Store tokens
-      setupAxios(accessToken);
+      setupToken(accessToken);
       localStorage.setItem('refreshToken', refreshToken);
 
       setUser(user);
-      setLoading(false);
 
+      // Ensure backend validates token
+      await checkAuth();
+
+      setLoading(false);
       return { success: true, user };
+
     } catch (error) {
       const errorMessage = error.response?.data?.error || 'Registration failed';
       setError(errorMessage);
@@ -124,9 +121,7 @@ export function AuthProvider({ children }) {
     }
   };
 
-  /**
-   * Login user
-   */
+  /** 🟢 Login */
   const login = async (email, password) => {
     try {
       setError(null);
@@ -139,14 +134,17 @@ export function AuthProvider({ children }) {
 
       const { user, accessToken, refreshToken } = response.data;
 
-      // Store tokens
-      setupAxios(accessToken);
+      setupToken(accessToken);
       localStorage.setItem('refreshToken', refreshToken);
 
       setUser(user);
-      setLoading(false);
 
+      // ENSURE API CLIENT SEES TOKEN BEFORE Dashboard loads
+      await checkAuth();
+
+      setLoading(false);
       return { success: true, user };
+
     } catch (error) {
       const errorMessage = error.response?.data?.error || 'Login failed';
       setError(errorMessage);
@@ -155,136 +153,110 @@ export function AuthProvider({ children }) {
     }
   };
 
-  /**
-   * Logout user
-   */
+  /** 🔴 Logout */
   const logout = async () => {
     try {
       const refreshToken = localStorage.getItem('refreshToken');
-      
+
       if (refreshToken) {
-        // Notify backend to invalidate token
-        await axios.post(`${API_BASE_URL}/api/auth/logout`, {
-          refreshToken,
-        });
+        await apiClient.post('/api/auth/logout', { refreshToken });
       }
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      // Clear local state regardless of API call success
-      setUser(null);
-      setupAxios(null);
-      localStorage.removeItem('refreshToken');
-      setLoading(false);
+    } catch (err) {
+      console.error('Logout error:', err);
     }
+
+    // Always clear local tokens + user
+    setUser(null);
+    setupToken(null);
+    localStorage.removeItem('refreshToken');
   };
 
-  /**
-   * Update user profile
-   */
+  /** 📝 Edit profile */
   const updateProfile = async (profileData) => {
     try {
       setError(null);
 
-      const response = await axios.put(
-        `${API_BASE_URL}/api/auth/profile`,
-        profileData
-      );
-
+      const response = await apiClient.put('/api/auth/profile', profileData);
       setUser(response.data.user);
+
       return { success: true, user: response.data.user };
-    } catch (error) {
-      const errorMessage = error.response?.data?.error || 'Update failed';
+    } catch (err) {
+      const errorMessage = err.response?.data?.error || 'Update failed';
       setError(errorMessage);
       throw new Error(errorMessage);
     }
   };
 
-  /**
-   * Change password
-   */
+  /** 🔐 Change Password */
   const changePassword = async (currentPassword, newPassword) => {
     try {
       setError(null);
 
-      const response = await axios.put(`${API_BASE_URL}/api/auth/password`, {
+      const response = await apiClient.put('/api/auth/password', {
         currentPassword,
         newPassword,
       });
 
       const { accessToken, refreshToken } = response.data;
 
-      // Update tokens
-      setupAxios(accessToken);
+      setupToken(accessToken);
       localStorage.setItem('refreshToken', refreshToken);
 
       return { success: true };
-    } catch (error) {
-      const errorMessage = error.response?.data?.error || 'Password change failed';
+
+    } catch (err) {
+      const errorMessage = err.response?.data?.error || 'Password update failed';
       setError(errorMessage);
       throw new Error(errorMessage);
     }
   };
 
-  /**
-   * Delete account
-   */
+  /** Delete account */
   const deleteAccount = async (password) => {
     try {
       setError(null);
 
-      await axios.delete(`${API_BASE_URL}/api/auth/account`, {
+      await apiClient.delete('/api/auth/account', {
         data: { password },
       });
 
-      // Clear everything
       await logout();
-
       return { success: true };
-    } catch (error) {
-      const errorMessage = error.response?.data?.error || 'Account deletion failed';
+
+    } catch (err) {
+      const errorMessage = err.response?.data?.error || 'Delete failed';
       setError(errorMessage);
       throw new Error(errorMessage);
     }
   };
 
-  /**
-   * Get user ID for API calls (returns actual user ID or "guest")
-   */
-  const getUserId = () => {
-    return user?.id || 'guest';
-  };
+  const getUserId = () => user?.id || null;
 
-  const value = {
-    user,
-    loading,
-    error,
-    isAuthenticated: !!user,
-    register,
-    login,
-    logout,
-    updateProfile,
-    changePassword,
-    deleteAccount,
-    getUserId,
-    checkAuth,
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        error,
+        isAuthenticated: !!user,
+        login,
+        register,
+        logout,
+        updateProfile,
+        changePassword,
+        deleteAccount,
+        getUserId,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
-/**
- * Hook to use authentication context
- * Usage: const { user, login, logout } = useAuth();
- */
 export function useAuth() {
-  const context = useContext(AuthContext);
-  
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used inside <AuthProvider>');
+  return ctx;
 }
 
 export default AuthContext;

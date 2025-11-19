@@ -1,13 +1,15 @@
 import express from "express";
 import Visited from "../models/Visited.js";
 import Wishlist from "../models/Wishlist.js";
-import { auth } from "../middleware/authMiddleware.js";
+import User from "../models/User.js";
+import { auth } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
 /**
  * UPDATED: All routes now require authentication
  * User ID is extracted from JWT token instead of request body
+ * User email is stored as foreign key to link with Users collection
  */
 
 // ===== Generic helpers =====
@@ -33,6 +35,13 @@ async function createHandler(Model, req, res) {
   }
 
   try {
+    // ✅ Fetch user email to store as foreign key
+    const user = await User.findById(userId).select('email');
+    
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
     // Check if already exists
     const existing = await Model.findOne({ userId, countryCode });
     
@@ -43,8 +52,10 @@ async function createHandler(Model, req, res) {
       });
     }
 
+    // ✅ Create record with email as foreign key
     const item = await Model.create({
       userId,
+      userEmail: user.email, // ✅ Store email to link with Users collection
       countryCode,
       countryName,
       region,
@@ -53,7 +64,7 @@ async function createHandler(Model, req, res) {
       updatedAt: new Date(),
     });
 
-    console.log(`✅ Created ${Model.modelName} for user ${userId}: ${countryName}`);
+    console.log(`✅ Created ${Model.modelName} for ${user.email}: ${countryName}`);
     
     res.status(201).json(item);
   } catch (err) {

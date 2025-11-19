@@ -4,8 +4,14 @@ const UserExperienceSchema = new mongoose.Schema(
   {
     userId: {
       type: String,
-      default: "guest", // placeholder until login system exists
+      required: true,
+      index: true,
     },
+    
+    // ✅ Email as foreign key to link with Users collection
+    userEmail: { type: String, required: true, index: true },
+    
+    // Experience details
     country: {
       type: String,
       required: true,
@@ -40,6 +46,11 @@ const UserExperienceSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// ✅ Indexes for queries and joins
+UserExperienceSchema.index({ userId: 1, country: 1 });
+UserExperienceSchema.index({ userEmail: 1 }); // ✅ Index for email-based joins
+UserExperienceSchema.index({ themes: 1 }); // For theme-based reports
 
 const UserExperience = mongoose.model("UserExperience", UserExperienceSchema);
 

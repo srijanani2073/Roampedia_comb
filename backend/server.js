@@ -9,7 +9,10 @@ import experienceRoutes from "./routes/experienceRoutes.js";
 import expensesRoutes from "./routes/expensesRoutes.js";
 import recommendationRoutes from "./routes/recommendationRoutes.js";
 import aiRecommendationRoutes from "./routes/aiRecommendationRoutes.js";
-import authRoutes from "./routes/authRoutes.js"; // NEW
+import authRoutes from "./routes/authRoutes.js";
+import userStatsRoutes from "./routes/userStatsRoutes.js"; // NEW
+import adminRoutes from "./routes/adminRoutes.js"; // NEW
+import reportRoutes from "./routes/reportRoutes.js"; // NEW
 
 dotenv.config();
 
@@ -21,7 +24,7 @@ const MONGODB_URI =
   process.env.MONGODB_URI ||
   "mongodb+srv://<username>:<password>@cluster.mongodb.net/roampedia?retryWrites=true&w=majority";
 const CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:5173";
-const JWT_SECRET = process.env.JWT_SECRET; // NEW - REQUIRED!
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Validate required environment variables
 if (!JWT_SECRET) {
@@ -37,10 +40,10 @@ app.use(
     origin: CORS_ORIGIN,
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
-    exposedHeaders: ["Authorization"], // Allow frontend to read auth header
+    exposedHeaders: ["Authorization"],
   })
 );
-app.use(express.json({ limit: "10mb" })); // Increased for profile pictures
+app.use(express.json({ limit: "10mb" }));
 app.use(morgan("dev"));
 
 // === MongoDB Connection ===
@@ -58,9 +61,9 @@ mongoose
 
 // === Routes ===
 // Authentication routes (public)
-app.use("/api/auth", authRoutes); // NEW - Authentication endpoints
+app.use("/api/auth", authRoutes);
 
-// Existing routes
+// User routes
 app.use("/api", listsRouter);
 app.use("/api/travelnotes", travelNotesRoutes);
 app.use("/api/experiences", experienceRoutes);
@@ -68,13 +71,23 @@ app.use("/api/expenses", expensesRoutes);
 app.use("/api/recommendations", recommendationRoutes);
 app.use("/api/ai-recommendations", aiRecommendationRoutes);
 
+// NEW: User stats and profile routes
+app.use("/api/user-stats", userStatsRoutes);
+
+// NEW: Admin analytics routes
+app.use("/api/admin", adminRoutes);
+
+// NEW: Report generation routes
+app.use("/api/reports", reportRoutes);
+
 // === Health Check ===
 app.get("/", (req, res) =>
   res.json({ 
     ok: true, 
     service: "roampedia-backend",
     auth: "enabled",
-    version: "2.0.0"
+    features: ["user-profiles", "admin-dashboard", "reports"],
+    version: "3.0.0"
   })
 );
 
@@ -91,6 +104,9 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`🔐 Authentication: ${JWT_SECRET ? 'Enabled' : 'Disabled'}`);
+  console.log(`📊 User Profiles: Enabled`);
+  console.log(`👑 Admin Dashboard: Enabled`);
+  console.log(`📄 Reports: Enabled`);
   console.log(`📍 API: http://localhost:${PORT}`);
   console.log(`🌐 CORS: ${CORS_ORIGIN}`);
 });

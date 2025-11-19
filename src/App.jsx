@@ -13,6 +13,8 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import Chatbot from "./components/ChatBot";
 import RecommendationEngine from "./pages/RecommendationEngine";
 import ProtectedRoute from "./components/ProtectedRoute";
+import UserProfile from './components/UserProfile/UserProfile';
+import AdminDashboard from './components/AdminDashboard/AdminDashboard';
 
 function App() {
   return (
@@ -28,6 +30,12 @@ function App() {
         <Route path="/itinerarydashboard" element={<ItineraryDashboard />} />
         <Route path="/map" element={<RoampediaMap />} />
         <Route path="/chatbot" element={<Chatbot />} />
+        <Route path="/profile" element={<ProtectedRoute>
+          <UserProfile />
+          </ProtectedRoute>} />
+        <Route path="/admin" element={ <ProtectedRoute requireAdmin={true}>
+          <AdminDashboard />
+          </ProtectedRoute>} />
         <Route 
           path="/recommend" 
           element={

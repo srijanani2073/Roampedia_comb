@@ -3,7 +3,7 @@ import Country from "../models/Country.js";
 import Visited from "../models/Visited.js";
 import Wishlist from "../models/Wishlist.js";
 import UserPreferences from "../models/UserPreferences.js";
-import { auth, optionalAuth } from "../middleware/authMiddleware.js";
+import { auth, optionalAuth } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
