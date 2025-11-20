@@ -1,0 +1,73 @@
+/* Main container – matches your chatbot aesthetic */
+.simple-converter {
+  width: 380px;
+  margin: 20px auto;
+  padding: 18px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(2, 6, 23, 0.08);
+  border: 1px solid rgba(2, 6, 23, 0.06);
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+  color: #0f172a;
+}
+
+/* Heading */
+.headline {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: #1e293b;
+  line-height: 1.4;
+}
+
+.big-rate {
+  font-size: 26px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* Main box layout */
+.converter-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Each row (left & right box) */
+.row-box {
+  background: #f8fafc;
+  border: 1px solid rgba(2,6,23,0.06);
+  border-radius: 10px;
+  padding: 10px 14px;
+
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Input */
+.amount-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 20px;
+  width: 120px;
+  color: #0f172a;
+}
+
+/* Dropdown styling */
+.currency-select {
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 16px;
+  color: #0f172a;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* Hover effect (same subtle style as your bot bubbles) */
+.row-box:hover {
+  background: #f1f5f9;
+  transition: 0.2s ease;
+}

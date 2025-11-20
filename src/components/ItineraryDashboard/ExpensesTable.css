@@ -1,0 +1,47 @@
+.expenses-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.expenses-table th,
+.expenses-table td {
+  padding: 8px;
+  border-bottom: 1px solid #eef2f7;
+  text-align: left;
+}
+
+.expenses-table input[type="text"],
+.expenses-table input[type="number"] {
+  width: 100%;
+  padding: 6px;
+  box-sizing: border-box;
+  border-radius: 6px;
+  border: 1px solid #e6e9ef;
+}
+
+.small {
+  background: transparent;
+  border: 1px solid #fde68a;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.total-row {
+  background: #f3f4f6;
+  font-size: 1rem;
+}
+
+.table-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+
+.save-btn {
+  background: #3b82f6;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}

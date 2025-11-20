@@ -1,0 +1,68 @@
+:root{
+  --navy: #062c43;
+  --teal-deep: #054569;
+  --teal-mid: #5591a9;
+  --teal-light: #9ccddc;
+  --mist: #ced7e0;
+}
+
+.planner-wrapper { margin-top: 10px; }
+
+.planner-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--teal-deep);
+  margin-bottom: 16px;
+}
+
+.planner-loading,
+.planner-empty {
+  color: var(--navy);
+  font-style: italic;
+}
+
+.planner-days {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.planner-day-card {
+  background: #ffffff;
+  border: 1px solid var(--mist);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.planner-day-title {
+  font-weight: 600;
+  color: var(--navy);
+  margin-bottom: 12px;
+}
+
+.planner-day-title span {
+  color: var(--teal-mid);
+}
+
+.planner-activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.planner-activity {
+  display: flex;
+  justify-content: space-between;
+  background: var(--teal-light);
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.planner-activity .slot {
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.planner-activity .place {
+  color: #000;
+}

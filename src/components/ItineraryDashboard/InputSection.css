@@ -1,0 +1,34 @@
+/* src/components/itinerary/InputSection.css */
+
+.input-card label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: #374151;
+}
+
+.input-card input[type="text"],
+.input-card input[type="number"],
+.input-card input[type="date"] {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #e6e9ef;
+  margin-top: 6px;
+  box-sizing: border-box;
+}
+
+.date-row {
+  display: flex;
+  gap: 8px;
+}
+
+.date-row label {
+  flex: 1;
+}
+
+.form-actions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+}

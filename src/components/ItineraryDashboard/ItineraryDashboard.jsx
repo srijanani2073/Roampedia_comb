@@ -1,353 +1,175 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip as ReTooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-} from "recharts";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
+// src/components/itinerary/ItineraryDashboard.jsx
+import React, { useState, useEffect } from "react";
 import "./ItineraryDashboard.css";
+
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+
+import InputSection from "./InputSection";
+import CurrencyConverter from "./CurrencyConverter";
 import ExpensesTable from "./ExpensesTable";
+import TasksList from "./TasksList";
+import DaywisePlanner from "./DaywisePlanner";
+import ItineraryViz from "./ItineraryViz";
+import Chatbot from "./Chatbot";
 
-/*
-Frontend-only Travel Dashboard
-- Editable fields
-- Local persistence via localStorage
-- Donut chart for expense breakdown
-- Horizontal bars comparing Budget vs Actual
-- CSV and PDF export
-- Countdown to start date
-Dependencies:
-  npm install recharts html2canvas jspdf
-*/
-
-const STORAGE_KEY = "roampedia_travel_dashboard_v1";
-
-const DEFAULT_STATE = {
-  title: "My Travel Plan",
-  destination: "Thailand",
-  today: new Date().toISOString().slice(0, 10),
-  startDate: "",
-  endDate: "",
-  travellers: { adults: 2, children: 0, pets: 0 },
-  currency: { from: "USD", to: "THB", rate: 38.0 },
-  tasks: {
-    whenYouBook: 6,
-    oneDayBefore: 6,
-    toDo: 15,
-    oneWeekBefore: 8,
-    departureDay: 6,
-    leftToPay: 970,
-  },
-  expenses: [
-    { category: "Flights", budget: 600, actual: 380 },
-    { category: "Accommodation", budget: 345, actual: 225 },
-    { category: "Activities", budget: 565, actual: 385 },
-    { category: "Restaurants", budget: 165, actual: 305 },
-    { category: "Car rental", budget: 120, actual: 350 },
-    { category: "Vaccinations", budget: 320, actual: 120 },
-    { category: "Food", budget: 200, actual: 75 },
-    { category: "Other", budget: 100, actual: 120 },
-  ],
-};
-
-const COLORS = [
-  "#2c7a7b",
-  "#48bb78",
-  "#38bdf8",
-  "#4f46e5",
-  "#f59e0b",
-  "#ef4444",
-  "#06b6d4",
-  "#8b5cf6",
-];
-
-export default function ItineraryModule() {
-  const [state, setState] = useState(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : DEFAULT_STATE;
-    } catch (e) {
-      return DEFAULT_STATE;
-    }
-  });
-
-  const visualRef = useRef(null);
+const ItineraryDashboard = () => {
+  const [form, setForm] = useState(null);
+  const [expenses, setExpenses] = useState([]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [state]);
+    const draft = { form, expenses };
+    localStorage.setItem("itineraryDraft", JSON.stringify(draft));
+  }, [form, expenses]);
 
-  // derived values
-  const totalBudget = useMemo(
-    () => state.expenses.reduce((s, e) => s + Number(e.budget || 0), 0),
-    [state.expenses]
-  );
-  const totalActual = useMemo(
-    () => state.expenses.reduce((s, e) => s + Number(e.actual || 0), 0),
-    [state.expenses]
-  );
-
-  const daysLeft = useMemo(() => {
-    if (!state.startDate) return null;
-    const today = new Date(state.today);
-    const start = new Date(state.startDate);
-    const diff = Math.ceil((start - today) / (1000 * 60 * 60 * 24));
-    return diff >= 0 ? diff : 0;
-  }, [state.startDate, state.today]);
-
-  const nights = useMemo(() => {
-    if (!state.startDate || !state.endDate) return null;
-    const s = new Date(state.startDate);
-    const e = new Date(state.endDate);
-    const diff = Math.ceil((e - s) / (1000 * 60 * 60 * 24));
-    return diff > 0 ? diff : 0;
-  }, [state.startDate, state.endDate]);
-
-  // pie chart data
-  const pieData = state.expenses.map((e) => ({
-    name: e.category,
-    value: Number(e.actual || e.budget || 0),
-  }));
-
-  // handlers
-  const updateField = (path, value) =>
-    setState((prev) => {
-      const copy = JSON.parse(JSON.stringify(prev));
-      const keys = path.split(".");
-      let cur = copy;
-      keys.forEach((k, i) => {
-        if (i === keys.length - 1) cur[k] = value;
-        else cur = cur[k];
-      });
-      return copy;
-    });
-
-  const updateExpense = (index, field, value) =>
-    setState((prev) => {
-      const copy = { ...prev, expenses: prev.expenses.map((e) => ({ ...e })) };
-      copy.expenses[index][field] = value;
-      return copy;
-    });
-
-  const addExpenseRow = () =>
-    setState((prev) => ({
-      ...prev,
-      expenses: [...prev.expenses, { category: "New", budget: 0, actual: 0 }],
-    }));
-
-  const removeExpenseRow = (i) =>
-    setState((prev) => ({
-      ...prev,
-      expenses: prev.expenses.filter((_, idx) => idx !== i),
-    }));
-
-  const resetDemo = () => {
-    setState((s) => ({ ...DEFAULT_STATE, today: s.today }));
+  const handleFormSubmit = (savedDoc) => {
+    localStorage.removeItem("itineraryDraft");
+    setForm(savedDoc);
+    setExpenses([]);
   };
 
-  // export CSV
-  const exportCSV = () => {
-    const rows = [];
-    rows.push(["Title", state.title]);
-    rows.push(["Destination", state.destination]);
-    rows.push(["Start Date", state.startDate || ""]);
-    rows.push(["End Date", state.endDate || ""]);
-    rows.push(["Nights", nights ?? ""]);
-    rows.push([]);
-    rows.push(["Category", "Budget", "Actual", "Difference"]);
-    state.expenses.forEach((e) =>
-      rows.push([e.category, e.budget, e.actual, (e.budget || 0) - (e.actual || 0)])
-    );
-    rows.push([]);
-    rows.push(["Total Budget", totalBudget]);
-    rows.push(["Total Actual", totalActual]);
-    const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `${(state.title || "itinerary").replace(/\s+/g, "_")}.csv`;
-    a.click();
-  };
-
-  // export PDF (snapshot of visualRef)
+  // ✨ PDF EXPORT WITH FULL FEATURES
   const exportPDF = async () => {
-    if (!visualRef.current) return;
-    try {
-      const canvas = await html2canvas(visualRef.current, { scale: 2, useCORS: true });
-      const img = canvas.toDataURL("image/png");
-      const pdf = new jsPDF("l", "pt", "a4");
-      const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
-      // fit width
-      const imgProps = pdf.getImageProperties(img);
-      const imgW = pageW - 40;
-      const imgH = (imgProps.height * imgW) / imgProps.width;
-      pdf.addImage(img, "PNG", 20, 20, imgW, imgH);
-      pdf.save(`${(state.title || "travel_dashboard").replace(/\s+/g, "_")}.pdf`);
-    } catch (err) {
-      console.error("PDF export error:", err);
-      alert("Could not generate PDF (see console).");
+    const fullPage = document.getElementById("pdf-wrapper-all");
+
+    const canvas = await html2canvas(fullPage, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      scrollY: -window.scrollY,
+    });
+
+    const imgData = canvas.toDataURL("image/png");
+    const pdf = new jsPDF("p", "mm", "a4");
+
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+
+    const imgWidth = pdfWidth;
+    const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+
+    let heightLeft = imgHeight;
+    let position = 0;
+
+    // === PAGE 1: TABLE OF CONTENTS ===
+    pdf.setFontSize(22);
+    pdf.text("📘 Trip Itinerary — Table of Contents", 14, 25);
+
+    pdf.setFontSize(13);
+    pdf.text("1. Trip Details", 14, 50);
+    pdf.text("2. Day-wise Planner", 14, 65);
+    pdf.text("3. Expenses Table", 14, 80);
+    pdf.text("4. Expense Visualization", 14, 95);
+    pdf.text("5. Tools (Chatbot, Currency Converter, Tasks)", 14, 110);
+
+    pdf.addPage();
+
+    // === PAGE 2+: THE ACTUAL CONTENT ===
+    pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
+    heightLeft -= pdfHeight;
+
+    while (heightLeft > 0) {
+      pdf.addPage();
+      position = heightLeft - imgHeight;
+      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight;
     }
+
+    // === FOOTER + PAGE NUMBERS ===
+    const totalPages = pdf.internal.getNumberOfPages();
+
+    for (let i = 1; i <= totalPages; i++) {
+      pdf.setPage(i);
+
+      // Header
+      pdf.setFontSize(10);
+      pdf.setTextColor(120);
+      pdf.text(
+        `Roampedia — ${form?.destination || ""} Travel Itinerary`,
+        pdfWidth / 2,
+        10,
+        { align: "center" }
+      );
+
+      // Footer
+      pdf.setTextColor(150);
+      pdf.text(
+        `Page ${i} of ${totalPages}`,
+        pdfWidth / 2,
+        pdfHeight - 10,
+        { align: "center" }
+      );
+    }
+
+    pdf.save(`itinerary-${form?.destination || "trip"}.pdf`);
   };
 
   return (
-    <div className="travel-dashboard">
-      <div className="dashboard-top">
-        <div className="hero">
-          <div className="hero-left">
-            <h1 contentEditable suppressContentEditableWarning onBlur={(e) => updateField("title", e.target.textContent)}>
-              {state.title}
-            </h1>
-            <p className="destination">
-              <label>Destination: </label>
-              <input value={state.destination} onChange={(e) => updateField("destination", e.target.value)} />
-            </p>
+    <div className="itinerary-dashboard">
+
+      {/* FULL WRAPPER FOR PDF */}
+      <div id="pdf-wrapper-all" className="pdf-wrapper-all">
+
+        <div className="itinerary-container">
+
+          {/* LEFT COLUMN INCLUDED IN PDF */}
+          <div className="left-column">
+            <InputSection onSubmit={handleFormSubmit} initialValues={form} />
+
+            <div className={`recommendations ${form ? "visible" : "hidden"}`}>
+              <h3>Quick Tools</h3>
+
+              <Chatbot />
+
+              <CurrencyConverter
+                homeCountry={form?.homeCountry}
+                destinationCountry={form?.destination}
+              />
+
+              {form && <TasksList itineraryId={form?._id} />}
+            </div>
           </div>
-          <div className="hero-right">
-            <div className="today">
-              <div>TODAY'S DATE:</div>
-              <div className="bold">{state.today}</div>
-            </div>
-            <div className="countdown">
-              <div>TRIP COUNTDOWN:</div>
-              <div className="bold">{daysLeft != null ? `${daysLeft} DAYS LEFT` : "--"}</div>
-            </div>
-            <div className="actions">
-              <button onClick={resetDemo}>Reset Demo</button>
-              <button onClick={exportCSV}>Export CSV</button>
-              <button onClick={exportPDF}>Export PDF</button>
-            </div>
+
+          {/* RIGHT COLUMN INCLUDED IN PDF */}
+          <div className="right-column">
+            {!form ? (
+              <div className="placeholder-note">Enter trip details first.</div>
+            ) : (
+              <>
+                <section className="section card page-break">
+                  <h3>Day-wise Planner</h3>
+                  <DaywisePlanner
+                    destination={form.destination}
+                    departureDate={form.departureDate}
+                    returnDate={form.returnDate}
+                  />
+                </section>
+
+                <section className="section card page-break">
+                  <h3>Expenses</h3>
+                  <ExpensesTable itineraryId={form._id} />
+                </section>
+
+                <section className="section card page-break">
+                  <h3>Expense Breakdown</h3>
+                  <ItineraryViz itineraryId={form._id} destination={form.destination} />
+                </section>
+              </>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="dashboard-grid" ref={visualRef}>
-        {/* Left column */}
-        <div className="col left-col">
-          <section className="card trip-details">
-            <h3>TRIP DETAILS</h3>
-            <div className="row">
-              <label>Start Date</label>
-              <input type="date" value={state.startDate} onChange={(e) => updateField("startDate", e.target.value)} />
-            </div>
-            <div className="row">
-              <label>End Date</label>
-              <input type="date" value={state.endDate} onChange={(e) => updateField("endDate", e.target.value)} />
-            </div>
-            <div className="row">
-              <label>No. of Nights</label>
-              <input type="number" value={nights ?? ""} readOnly />
-            </div>
-          </section>
-
-          <section className="card travellers">
-            <h3>TRAVELLERS</h3>
-            <div className="row small">
-              <label>Adults</label>
-              <input type="number" value={state.travellers.adults} min="0" onChange={(e) => updateField("travellers.adults", Number(e.target.value))} />
-            </div>
-            <div className="row small">
-              <label>Children</label>
-              <input type="number" value={state.travellers.children} min="0" onChange={(e) => updateField("travellers.children", Number(e.target.value))} />
-            </div>
-            <div className="row small">
-              <label>Pets</label>
-              <input type="number" value={state.travellers.pets} min="0" onChange={(e) => updateField("travellers.pets", Number(e.target.value))} />
-            </div>
-            <div className="currency">
-              <label>Currency Conv.</label>
-              <div className="cc-row">
-                <input value={state.currency.from} onChange={(e) => updateField("currency.from", e.target.value)} />
-                <span>→</span>
-                <input value={state.currency.to} onChange={(e) => updateField("currency.to", e.target.value)} />
-                <input type="number" value={state.currency.rate} onChange={(e) => updateField("currency.rate", Number(e.target.value))} />
-              </div>
-            </div>
-          </section>
-
-          <section className="card tasks">
-            <h3>TASKS LEFT TO DO</h3>
-            <div className="task-grid">
-              <div className="task-row"><div>WHEN YOU BOOK</div><div>{state.tasks.whenYouBook}</div></div>
-              <div className="task-row"><div>ONE DAY BEFORE</div><div>{state.tasks.oneDayBefore}</div></div>
-              <div className="task-row"><div>TO DO</div><div>{state.tasks.toDo}</div></div>
-              <div className="task-row"><div>ONE WEEK BEFORE</div><div>{state.tasks.oneWeekBefore}</div></div>
-              <div className="task-row"><div>DEPARTURE DAY</div><div>{state.tasks.departureDay}</div></div>
-              <div className="task-row"><div>LEFT TO PAY</div><div>{state.tasks.leftToPay}</div></div>
-            </div>
-          </section>
-        </div>
-
-        {/* Middle column (charts) */}
-        <div className="col mid-col">
-          <section className="card expenses-pie">
-            <h3>EXPENSES BREAKDOWN</h3>
-            <div className="pie-area">
-              <ResponsiveContainer width="100%" height={260}>
-                <PieChart>
-                  <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={60} outerRadius={100} paddingAngle={4}>
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <ReTooltip />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="legend">
-                {state.expenses.map((e, i) => (
-                  <div key={e.category} className="legend-row">
-                    <span className="swatch" style={{ background: COLORS[i % COLORS.length] }} />
-                    <div>
-                      <div className="cat">{e.category}</div>
-                      <div className="meta">Budget: {e.budget} • Actual: {e.actual}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          <section className="card budget-bars">
-            <h3>TRIP BUDGET</h3>
-            <div className="bars-area">
-              <ResponsiveContainer width="100%" height={160}>
-                <BarChart layout="vertical" data={state.expenses} margin={{ top: 5, right: 20, left: 40, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" />
-                  <YAxis type="category" dataKey="category" width={120} />
-                  <Tooltip />
-                  <Bar dataKey="budget" barSize={12} radius={[6, 6, 6, 6]} />
-                  <Bar dataKey="actual" barSize={8} radius={[6, 6, 6, 6]} fill="#16a34a" />
-                </BarChart>
-              </ResponsiveContainer>
-
-              <div className="totals">
-                <div><strong>BUDGET</strong><div className="big">{totalBudget}</div></div>
-                <div><strong>ACTUAL</strong><div className="big">{totalActual}</div></div>
-                <div><strong>DIFFERENCE</strong><div className="big">{totalBudget - totalActual}</div></div>
-              </div>
-            </div>
-          </section>
-        </div>
-
-        {/* Right column (table & edit) */}
-        <div className="col right-col">
-            <ExpensesTable />
-          <section className="card notes">
-            <h3>NOTES</h3>
-            <textarea value={state.notes || ""} onChange={(e) => updateField("notes", e.target.value)} placeholder="Trip notes..." />
-          </section>
-        </div>
+      {/* Button outside capture */}
+      <div className="actions-row">
+        {form && (
+          <button className="btn-export" onClick={exportPDF}>
+            Export Full PDF
+          </button>
+        )}
       </div>
     </div>
   );
-}
+};
+
+export default ItineraryDashboard;

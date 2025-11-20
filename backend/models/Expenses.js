@@ -1,39 +1,23 @@
 import mongoose from "mongoose";
 
-const expenseSchema = new mongoose.Schema(
+const expenseItemSchema = new mongoose.Schema({
+  category: { type: String, required: true },
+  budget: { type: Number, default: 0 },
+  notes: { type: String, default: "" }
+});
+
+const expensesSchema = new mongoose.Schema(
   {
-    userId: {
+    itineraryId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
       required: true,
-      index: true, // For faster queries by user
+      ref: "genitineraries"
     },
-    category: { 
-      type: String, 
-      required: true 
-    },
-    budget: { 
-      type: Number, 
-      default: 0 
-    },
-    actual: { 
-      type: Number, 
-      default: 0 
-    },
-    // Optional: Add trip/itinerary reference if expenses are trip-specific
-    tripId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Trip", // If you have a Trip model
-    },
-    notes: {
-      type: String,
-    },
+    items: [expenseItemSchema],
   },
   { timestamps: true }
 );
 
-// Compound index for efficient user + category queries
-expenseSchema.index({ userId: 1, category: 1 });
+const Expenses = mongoose.model("Expenses", expensesSchema);
 
-const Expense = mongoose.model("Expense", expenseSchema);
-export default Expense;
+export default Expenses;

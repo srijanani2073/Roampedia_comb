@@ -2,10 +2,8 @@ import React from "react";
 import { Routes, Route } from "react-router-dom";
 import Home from "./pages/home";
 import Navbar from "./components/Navbar";
-import CurrencyConverter from "./components/CurrencyConverter";
-import NewsFeed from "./components/NewsFeed";
-import ItineraryModule from "./components/ItineraryModule";
-import ItineraryPlanner from "./components/ItineraryPlanner";
+import CurrencyConverter from "./components/CountryDashboard/CurrencyConverter";
+import NewsFeed from "./components/CountryDashboard/NewsFeed";
 import ItineraryDashboard from "./components/ItineraryDashboard/ItineraryDashboard";
 import RoampediaMap from './components/RoampediaMap';
 import "mapbox-gl/dist/mapbox-gl.css";
@@ -24,9 +22,7 @@ function App() {
         {/* Pass standalone={true} prop for dedicated pages */}
         <Route path="/news" element={<NewsFeed standalone={true} />} />
         <Route path="/currency" element={<CurrencyConverter standalone={true} />} />
-        <Route path="/itinerary" element={<ItineraryModule />} />
-        <Route path="/itineraryplanner" element={<ItineraryPlanner />} />
-        <Route path="/itinerarydashboard" element={<ItineraryDashboard />} />
+        <Route path="/itinerary" element={<ItineraryDashboard />} />
         <Route path="/map" element={<RoampediaMap />} />
         <Route path="/chatbot" element={<Chatbot />} />
         <Route path="/profile" element={<ProtectedRoute>

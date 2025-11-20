@@ -1,183 +1,95 @@
-// backend/routes/expensesRoutes.js
 import express from "express";
-import Expense from "../models/Expenses.js";
-import { auth } from "../middlewares/authMiddleware.js";
+import Expenses from "../models/Expenses.js";
+import GenItinerary from "../models/GenItinerary.js";
 
 const router = express.Router();
 
-// === PROTECTED ROUTES - Require Authentication ===
-
-// === READ ALL USER'S EXPENSES ===
-router.get("/", auth, async (req, res) => {
+// -------------------------------------------
+// GET expenses (create if none exists)
+// -------------------------------------------
+router.get("/:itineraryId", async (req, res) => {
   try {
-    // Only fetch expenses for the authenticated user
-    const expenses = await Expense.find({ userId: req.userId })
-      .sort({ category: 1 });
-    res.json(expenses);
-  } catch (err) {
-    console.error("Error fetching expenses:", err);
-    res.status(500).json({ message: err.message });
-  }
-});
+    const itineraryId = req.params.itineraryId;
 
-// === GET EXPENSES BY TRIP (Optional - if you track expenses per trip) ===
-router.get("/trip/:tripId", auth, async (req, res) => {
-  try {
-    const expenses = await Expense.find({ 
-      userId: req.userId,
-      tripId: req.params.tripId 
-    });
-    res.json(expenses);
-  } catch (err) {
-    console.error("Error fetching trip expenses:", err);
-    res.status(500).json({ message: err.message });
-  }
-});
+    let expenses = await Expenses.findOne({ itineraryId });
+    if (expenses) return res.json(expenses);
 
-// === INITIALIZE DEFAULT CATEGORIES FOR USER ===
-router.post("/init", auth, async (req, res) => {
-  try {
-    // Check if user already has expenses
-    const count = await Expense.countDocuments({ userId: req.userId });
-    if (count > 0) {
-      return res.status(200).json({ 
-        message: "Already initialized",
-        count 
-      });
+    const itin = await GenItinerary.findById(itineraryId);
+    if (!itin) {
+      return res.status(404).json({ message: "Itinerary not found" });
     }
 
-    const defaultExpenses = [
-      { userId: req.userId, category: "Transport", budget: 0, actual: 0 },
-      { userId: req.userId, category: "Accommodation", budget: 0, actual: 0 },
-      { userId: req.userId, category: "Food", budget: 0, actual: 0 },
-      { userId: req.userId, category: "Activities", budget: 0, actual: 0 },
-      { userId: req.userId, category: "Miscellaneous", budget: 0, actual: 0 },
-    ];
+    const { days, travellers, budgetMin, budgetMax } = itin;
 
-    const saved = await Expense.insertMany(defaultExpenses);
-    res.status(201).json(saved);
-  } catch (err) {
-    console.error("Error initializing expenses:", err);
-    res.status(500).json({ message: err.message });
-  }
-});
+    const DEFAULT_COST_PER_DAY = 100;
 
-// === CREATE/UPDATE EXPENSES (SAVE ALL) ===
-router.post("/", auth, async (req, res) => {
-  try {
-    const expenses = req.body;
-    
-    // Validate that all expenses are for this user
-    const allBelongToUser = expenses.every(exp => 
-      !exp.userId || exp.userId === req.userId
-    );
-    
-    if (!allBelongToUser) {
-      return res.status(403).json({ 
-        message: "Cannot modify expenses for other users" 
-      });
+    let totalBudget;
+
+    if (budgetMin || budgetMax) {
+      if (budgetMin && budgetMax) {
+        totalBudget = (Number(budgetMin) + Number(budgetMax)) / 2;
+      } else {
+        totalBudget = Number(budgetMax || budgetMin);
+      }
+    } else {
+      totalBudget =
+        DEFAULT_COST_PER_DAY * (days || 5) * (travellers || 1);
     }
 
-    // Delete user's existing expenses
-    await Expense.deleteMany({ userId: req.userId });
-    
-    // Add userId to all expenses
-    const expensesWithUserId = expenses.map(exp => ({
-      ...exp,
-      userId: req.userId
-    }));
-    
-    const saved = await Expense.insertMany(expensesWithUserId);
-    res.status(201).json(saved);
-  } catch (err) {
-    console.error("Error saving expenses:", err);
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// === UPDATE SINGLE EXPENSE ===
-router.put("/:id", auth, async (req, res) => {
-  try {
-    const expense = await Expense.findOne({
-      _id: req.params.id,
-      userId: req.userId // Ensure user owns this expense
-    });
-
-    if (!expense) {
-      return res.status(404).json({ 
-        message: "Expense not found or unauthorized" 
-      });
-    }
-
-    // Update fields
-    const { category, budget, actual, notes, tripId } = req.body;
-    if (category) expense.category = category;
-    if (budget !== undefined) expense.budget = budget;
-    if (actual !== undefined) expense.actual = actual;
-    if (notes !== undefined) expense.notes = notes;
-    if (tripId !== undefined) expense.tripId = tripId;
-
-    const updated = await expense.save();
-    res.json(updated);
-  } catch (err) {
-    console.error("Error updating expense:", err);
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// === DELETE ONE EXPENSE BY ID ===
-router.delete("/:id", auth, async (req, res) => {
-  try {
-    const result = await Expense.findOneAndDelete({
-      _id: req.params.id,
-      userId: req.userId // Ensure user owns this expense
-    });
-
-    if (!result) {
-      return res.status(404).json({ 
-        message: "Expense not found or unauthorized" 
-      });
-    }
-
-    res.json({ message: "Deleted successfully" });
-  } catch (err) {
-    console.error("Error deleting expense:", err);
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// === GET EXPENSE STATISTICS ===
-router.get("/stats", auth, async (req, res) => {
-  try {
-    const expenses = await Expense.find({ userId: req.userId });
-    
-    const stats = {
-      totalBudget: expenses.reduce((sum, exp) => sum + exp.budget, 0),
-      totalActual: expenses.reduce((sum, exp) => sum + exp.actual, 0),
-      byCategory: expenses.map(exp => ({
-        category: exp.category,
-        budget: exp.budget,
-        actual: exp.actual,
-        variance: exp.budget - exp.actual,
-        percentUsed: exp.budget > 0 ? (exp.actual / exp.budget * 100).toFixed(1) : 0
-      }))
+    const percentages = {
+      Transport: 0.30,
+      Accommodation: 0.20,
+      Food: 0.25,
+      Activities: 0.15,
+      Miscellaneous: 0.10,
     };
 
-    stats.totalVariance = stats.totalBudget - stats.totalActual;
-    stats.percentUsed = stats.totalBudget > 0 
-      ? (stats.totalActual / stats.totalBudget * 100).toFixed(1) 
-      : 0;
+    const defaultItems = Object.entries(percentages).map(([cat, pct]) => ({
+      category: cat,
+      budget: Math.round(totalBudget * pct),
+      notes: ""
+    }));
 
-    res.json(stats);
+    expenses = await Expenses.create({
+      itineraryId,
+      items: defaultItems,
+    });
+
+    res.status(201).json(expenses);
+
   } catch (err) {
-    console.error("Error calculating stats:", err);
+    console.error("GET expenses error:", err);
     res.status(500).json({ message: err.message });
   }
 });
 
-// === TEST ROUTE (Optional) ===
-router.get("/test", (req, res) => {
-  res.json({ ok: true, message: "Expenses routes are working!" });
+// -------------------------------------------
+// UPDATE
+// -------------------------------------------
+router.put("/:itineraryId", async (req, res) => {
+  try {
+    const updated = await Expenses.findOneAndUpdate(
+      { itineraryId: req.params.itineraryId },
+      { items: req.body.items },
+      { new: true }
+    );
+
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// -------------------------------------------
+// DELETE
+// -------------------------------------------
+router.delete("/:itineraryId", async (req, res) => {
+  try {
+    await Expenses.findOneAndDelete({ itineraryId: req.params.itineraryId });
+    res.json({ message: "Expenses deleted" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 });
 
 export default router;

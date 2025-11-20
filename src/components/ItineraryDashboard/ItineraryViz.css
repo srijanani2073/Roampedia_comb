@@ -1,0 +1,156 @@
+.viz-container {
+  margin: 2rem auto;
+  padding: 1rem;
+}
+
+.viz-header {
+  margin-bottom: 0.5rem;
+  font-size: 1.25rem;
+  color: #0f172a;
+}
+
+.viz-card {
+  background: #ffffff;
+  padding: 1.25rem;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(2,6,23,0.06);
+  margin-bottom: 1.25rem;
+}
+
+.chart-box {
+  background: #f9fafb;
+  padding: 1rem;
+  border-radius: 10px;
+}
+
+.total-display {
+  text-align: center;
+  margin-top: 1rem;
+  font-size: 1.05rem;
+}
+
+.summary-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  margin-top: 1rem;
+}
+
+.summary-card {
+  flex: 1;
+  min-width: 140px;
+  background: #f3f4f6;
+  padding: 0.75rem;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.summary-title {
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.summary-amount {
+  font-size: 1.05rem;
+  color: #0f172a;
+  margin-bottom: 0.25rem;
+}
+
+.summary-percent {
+  color: #6b7280;
+}
+
+/* ---- Attraction breakdown ---- */
+.attr-breakdown {
+  margin-top: 1rem;
+  position: relative;
+}
+
+.attr-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  cursor: pointer;
+}
+
+.attr-label {
+  width: 120px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.attr-bar {
+  height: 14px;
+  border-radius: 8px;
+  transition: width 0.25s ease, background-color 0.2s;
+}
+
+.attr-count {
+  font-weight: 700;
+  width: 40px;
+  text-align: right;
+  color: #0f172a;
+}
+
+/* popup: hidden by default; shown on hover (desktop) or .open (mobile) */
+.attr-popup {
+  position: absolute;
+  left: 170px;
+  top: 34px;
+  background: #ffffff;
+  padding: 12px;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(2,6,23,0.12);
+  display: none;
+  min-width: 320px;
+  z-index: 80;
+}
+
+.attr-row:hover .attr-popup {
+  display: block;
+}
+
+.attr-popup.open {
+  display: block;
+}
+
+.attr-popup ul {
+  margin-top: 8px;
+  padding-left: 18px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.attr-list-item {
+  margin-bottom: 10px;
+}
+
+.site-name {
+  font-weight: 700;
+}
+
+.site-location {
+  font-size: 0.92rem;
+  color: #374151;
+}
+
+.site-desc {
+  font-size: 0.9rem;
+  color: #4b5563;
+  margin-top: 4px;
+}
+
+/* Responsive */
+@media (max-width: 880px) {
+  .attr-popup {
+    left: 12px;
+    top: 44px;
+    min-width: calc(100% - 24px);
+  }
+  .attr-label {
+    width: 100px;
+  }
+  .summary-grid { gap: 0.6rem; }
+}

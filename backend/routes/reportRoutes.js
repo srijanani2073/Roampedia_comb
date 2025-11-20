@@ -5,7 +5,6 @@ import Visited from "../models/Visited.js";
 import Wishlist from "../models/Wishlist.js";
 import UserExperience from "../models/UserExperience.js";
 import TravelNote from "../models/TravelNote.js";
-import Itinerary from "../models/Itinerary.js";
 import { auth, isAdmin } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();

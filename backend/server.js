@@ -13,8 +13,13 @@ import authRoutes from "./routes/authRoutes.js";
 import userStatsRoutes from "./routes/userStatsRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
-import itineraryRoutes from "./routes/itineraryRoutes.js"; 
 import countryInsightsRoutes from "./routes/countryInsightsRoutes.js"
+import genItineraryRoutes from "./routes/genItineraryRoutes.js"
+import attractionsRoutes from "./routes/attractionsRoutes.js";
+import countryRoutes from "./routes/countryRoutes.js";
+import tasksRoutes from "./routes/tasks.js";
+import chatbotRoute from "./routes/chatbot.js";
+
 
 dotenv.config();
 
@@ -73,10 +78,14 @@ app.use("/api/expenses", expensesRoutes);
 app.use("/api/recommendations", recommendationRoutes);
 app.use("/api/ai-recommendations", aiRecommendationRoutes);
 app.use("/api/reports", reportRoutes);
-app.use("/api/itineraries", itineraryRoutes);
 app.use("/api/user-stats", userStatsRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/country-insights", countryInsightsRoutes);
+app.use("/api/attractions", attractionsRoutes);
+app.use("/api/countries", countryRoutes);
+app.use("/api/itinerary", genItineraryRoutes);
+app.use("/api/tasks", tasksRoutes);
+app.use("/api/chat", chatbotRoute);
 
 // === Health Check ===
 app.get("/", (req, res) =>
