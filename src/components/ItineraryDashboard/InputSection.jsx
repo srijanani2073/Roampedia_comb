@@ -220,7 +220,7 @@ export default function InputSection({ onSubmit, initialValues }) {
   // UI
   // ======================
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-10 px-5">
+    <div className="card-shell">
       <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-xl p-8">
 
         <h1 className="text-3xl font-bold text-gray-900 mb-1">
@@ -395,7 +395,7 @@ export default function InputSection({ onSubmit, initialValues }) {
           {/* SUBMIT */}
           <button
             type="submit"
-            className="w-full bg-indigo-600 text-white py-4 rounded-lg font-semibold hover:bg-indigo-700"
+            className="btn-primary"
           >
             Generate My Itinerary
           </button>

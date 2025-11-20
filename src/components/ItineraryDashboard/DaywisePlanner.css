@@ -1,68 +1,155 @@
-:root{
-  --navy: #062c43;
-  --teal-deep: #054569;
-  --teal-mid: #5591a9;
-  --teal-light: #9ccddc;
-  --mist: #ced7e0;
+/* =========================================================
+   DaywisePlanner.css — Pastel Earth Aesthetic 🌍🌿
+   Matching InputSection.css + full Roampedia theme
+   ========================================================= */
+
+:root {
+  --sky: #dff3ff;
+  --sky-soft: #edf7ff;
+  --ocean: #53b4e8;
+  --forest: #58c48d;
+  --mint: #bff3d4;
+  --sand: #fff3d6;
+  --ink: #1a1f2e;
+  --muted: #64748b;
 }
 
-.planner-wrapper { margin-top: 10px; }
-
-.planner-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--teal-deep);
-  margin-bottom: 16px;
-}
-
-.planner-loading,
-.planner-empty {
-  color: var(--navy);
-  font-style: italic;
-}
-
-.planner-days {
+/* MAIN WRAPPER */
+.daywise-planner {
+  background: linear-gradient(
+      180deg,
+      rgba(223, 243, 255, 0.55),
+      rgba(255, 255, 255, 0.9)
+    ),
+    var(--sky-soft);
+  padding: 28px 32px;
+  margin-top: 20px;
+  border-radius: 26px;
+  border: 1px solid rgba(180, 210, 230, 0.6);
+  box-shadow: 0 20px 50px rgba(80, 140, 180, 0.15);
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--ink);
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 22px;
 }
 
-.planner-day-card {
-  background: #ffffff;
-  border: 1px solid var(--mist);
-  border-radius: 10px;
-  padding: 16px;
+/* EACH DAY CARD */
+.day-card {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.95),
+    rgba(240, 250, 255, 0.98)
+  );
+  border: 1px solid rgba(180, 210, 230, 0.7);
+  border-radius: 20px;
+  padding: 22px 26px;
+  box-shadow: 0 16px 42px rgba(80, 140, 180, 0.15);
+  transition: all 0.25s ease;
+  position: relative;
 }
 
-.planner-day-title {
-  font-weight: 600;
-  color: var(--navy);
-  margin-bottom: 12px;
+/* Hover elevate */
+.day-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 25px 55px rgba(80, 140, 180, 0.25);
 }
 
-.planner-day-title span {
-  color: var(--teal-mid);
-}
-
-.planner-activity-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.planner-activity {
+/* Day title */
+.day-card h3 {
+  margin: 0 0 14px;
+  font-size: 1.15rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink);
   display: flex;
   justify-content: space-between;
-  background: var(--teal-light);
-  padding: 10px;
-  border-radius: 8px;
 }
 
-.planner-activity .slot {
+/* LIST OF ATTRACTIONS */
+.day-card ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* INDIVIDUAL ATTRACTION ITEM */
+.attraction-item {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(200, 220, 240, 0.8);
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: 0 10px 24px rgba(150, 180, 200, 0.18);
+  transition: all 0.25s ease;
+  line-height: 1.45;
+  position: relative;
+}
+
+/* Hover animation */
+.attraction-item:hover {
+  transform: translateX(3px);
+  background: rgba(255, 255, 255, 1);
+  box-shadow: 0 18px 38px rgba(100, 160, 200, 0.25);
+}
+
+/* Attraction title */
+.attraction-item strong {
+  font-size: 1rem;
+  color: var(--ocean);
   font-weight: 700;
-  color: var(--navy);
 }
 
-.planner-activity .place {
-  color: #000;
+/* Location */
+.attraction-item span {
+  font-size: 0.92rem;
+  color: #35617b;
+  display: inline-block;
+  margin-top: 4px;
+}
+
+/* Short description */
+.attraction-item small {
+  color: var(--muted);
+  font-size: 0.82rem;
+  display: inline-block;
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
+/* LOADING + EMPTY */
+.daywise-planner p {
+  color: var(--muted);
+  font-size: 0.94rem;
+  padding: 8px 0;
+}
+
+/* Fade-in animation */
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.day-card,
+.attraction-item {
+  animation: fadeSlideUp 0.4s ease;
+}
+
+/* MOBILE */
+@media (max-width: 650px) {
+  .daywise-planner {
+    padding: 22px 20px;
+  }
+  .day-card {
+    padding: 18px 20px;
+  }
 }

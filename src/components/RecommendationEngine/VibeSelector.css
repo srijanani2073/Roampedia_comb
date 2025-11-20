@@ -2,7 +2,7 @@
   max-width: 1200px;
   margin: 0 auto;
   padding: 2rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #3aafa9 0%, #2b7a78 100%);
   border-radius: 20px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
 }
@@ -49,7 +49,7 @@
   align-items: center;
   gap: 0.75rem;
   margin-bottom: 1.25rem;
-  color: #2c3e50;
+  color: #1f2933;
 }
 
 .section-title h3 {
@@ -60,7 +60,7 @@
 }
 
 .selection-count {
-  background: #667eea;
+  background: #3aafa9;
   color: white;
   padding: 0.25rem 0.75rem;
   border-radius: 20px;
@@ -80,14 +80,14 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
-  border: 2px solid #e0e0e0;
+  border: 2px solid #e3ecef;
   border-radius: 12px;
   background: white;
   cursor: pointer;
   transition: all 0.3s ease;
   font-size: 0.95rem;
   font-weight: 500;
-  color: #2c3e50;
+  color: #1f2933;
 }
 
 .tag-chip:hover {
@@ -135,7 +135,7 @@
   padding: 0.75rem;
   background: transparent;
   border: none;
-  color: #667eea;
+  color: #3aafa9;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
@@ -143,7 +143,7 @@
 }
 
 .toggle-advanced:hover {
-  color: #764ba2;
+  color: #2b7a78;
 }
 
 .filters-grid {
@@ -152,7 +152,7 @@
   gap: 1rem;
   margin-top: 1rem;
   padding-top: 1rem;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid #e3ecef;
 }
 
 .filter-group {
@@ -164,13 +164,13 @@
 .filter-group label {
   font-size: 0.9rem;
   font-weight: 600;
-  color: #2c3e50;
+  color: #1f2933;
 }
 
 .filter-group select,
 .filter-group input[type="text"] {
   padding: 0.75rem;
-  border: 2px solid #e0e0e0;
+  border: 2px solid #e3ecef;
   border-radius: 8px;
   font-size: 0.95rem;
   transition: all 0.2s ease;
@@ -179,8 +179,8 @@
 .filter-group select:focus,
 .filter-group input[type="text"]:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: #3aafa9;
+  box-shadow: 0 0 0 3px rgba(58, 175, 169, 0.1);
 }
 
 .checkbox-group label {
@@ -221,7 +221,7 @@
 
 .btn-reset {
   background: white;
-  color: #667eea;
+  color: #3aafa9;
   border: 2px solid white;
 }
 
@@ -233,7 +233,7 @@
 
 .btn-search {
   background: white;
-  color: #667eea;
+  color: #3aafa9;
   border: 2px solid white;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
   flex: 1;
@@ -253,8 +253,8 @@
 .spinner {
   width: 20px;
   height: 20px;
-  border: 3px solid rgba(102, 126, 234, 0.2);
-  border-top-color: #667eea;
+  border: 3px solid rgba(58, 175, 169, 0.2);
+  border-top-color: #3aafa9;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }

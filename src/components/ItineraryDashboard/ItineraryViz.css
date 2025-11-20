@@ -1,32 +1,45 @@
-.viz-container {
-  margin: 2rem auto;
-  padding: 1rem;
-}
+/* =========================================================
+   ItineraryViz.css – Visual analytics earth theme
+   ========================================================= */
 
-.viz-header {
-  margin-bottom: 0.5rem;
-  font-size: 1.25rem;
+.viz-container {
+  margin: 1.5rem auto;
+  padding: 0 24px;
+  max-width: 1400px;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   color: #0f172a;
 }
 
 .viz-card {
-  background: #ffffff;
-  padding: 1.25rem;
-  border-radius: 12px;
-  box-shadow: 0 6px 20px rgba(2,6,23,0.06);
-  margin-bottom: 1.25rem;
+  background: linear-gradient(135deg, #ffffff, #e0f2fe);
+  padding: 1.4rem 1.5rem;
+  border-radius: 20px;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  margin-bottom: 1.4rem;
 }
 
+.viz-header {
+  margin-bottom: 0.6rem;
+  font-size: 0.98rem;
+  color: #1f2937;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Chart box */
 .chart-box {
   background: #f9fafb;
   padding: 1rem;
-  border-radius: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
 }
 
+/* Summary */
 .total-display {
   text-align: center;
   margin-top: 1rem;
-  font-size: 1.05rem;
+  font-size: 1.02rem;
 }
 
 .summary-grid {
@@ -38,31 +51,34 @@
 
 .summary-card {
   flex: 1;
-  min-width: 140px;
-  background: #f3f4f6;
-  padding: 0.75rem;
-  border-radius: 8px;
+  min-width: 160px;
+  background: #ffffff;
+  padding: 0.8rem;
+  border-radius: 12px;
   text-align: center;
+  border: 1px solid rgba(226, 232, 240, 0.9);
 }
 
 .summary-title {
-  font-weight: 700;
-  margin-bottom: 0.25rem;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+  color: #6b7280;
 }
 
 .summary-amount {
   font-size: 1.05rem;
-  color: #0f172a;
-  margin-bottom: 0.25rem;
+  color: #16a34a;
+  margin-bottom: 0.15rem;
 }
 
 .summary-percent {
-  color: #6b7280;
+  color: #2563eb;
+  font-size: 0.84rem;
 }
 
-/* ---- Attraction breakdown ---- */
+/* Attraction breakdown */
 .attr-breakdown {
-  margin-top: 1rem;
+  margin-top: 1.1rem;
   position: relative;
 }
 
@@ -71,19 +87,20 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   cursor: pointer;
 }
 
 .attr-label {
-  width: 120px;
-  font-weight: 700;
-  color: #0f172a;
+  width: 130px;
+  font-weight: 600;
+  color: #1f2937;
+  font-size: 0.9rem;
 }
 
 .attr-bar {
   height: 14px;
-  border-radius: 8px;
+  border-radius: 999px;
   transition: width 0.25s ease, background-color 0.2s;
 }
 
@@ -94,24 +111,22 @@
   color: #0f172a;
 }
 
-/* popup: hidden by default; shown on hover (desktop) or .open (mobile) */
+/* Popup */
 .attr-popup {
   position: absolute;
   left: 170px;
   top: 34px;
   background: #ffffff;
   padding: 12px;
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(2,6,23,0.12);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.15);
   display: none;
   min-width: 320px;
   z-index: 80;
+  border: 1px solid rgba(226, 232, 240, 0.9);
 }
 
-.attr-row:hover .attr-popup {
-  display: block;
-}
-
+.attr-row:hover .attr-popup,
 .attr-popup.open {
   display: block;
 }
@@ -123,34 +138,17 @@
   overflow: auto;
 }
 
-.attr-list-item {
-  margin-bottom: 10px;
-}
-
-.site-name {
-  font-weight: 700;
-}
-
-.site-location {
-  font-size: 0.92rem;
-  color: #374151;
-}
-
-.site-desc {
-  font-size: 0.9rem;
-  color: #4b5563;
-  margin-top: 4px;
-}
-
 /* Responsive */
 @media (max-width: 880px) {
+  .viz-container {
+    padding: 0 16px;
+  }
   .attr-popup {
     left: 12px;
     top: 44px;
     min-width: calc(100% - 24px);
   }
   .attr-label {
-    width: 100px;
+    width: 110px;
   }
-  .summary-grid { gap: 0.6rem; }
 }
